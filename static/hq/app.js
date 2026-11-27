@@ -5,20 +5,42 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const STAGES = {
   new: 'New', contact_attempted: 'Contact attempted', connected: 'Connected', qualified: 'Qualified',
   appointment_set: 'Appointment set', property_reviewed: 'Property reviewed', options_presented: 'Options presented',
-  nurture: 'Nurture', under_contract: 'Under contract', closed_won: 'Closed — won', closed_lost: 'Closed — lost',
+  nurture: 'Nurture', under_contract: 'Under contract', closed_won: 'Closed won', closed_lost: 'Closed lost',
   not_a_fit: 'Not a fit', spam: 'Spam',
 };
 const ROUTES = { direct: 'Sell direct', listing: 'List', renovate: 'Renovate then sell', development: 'Development', not_ready: 'Not ready yet', buyer: 'Home purchase inquiry', investor: 'Investment property inquiry', home_value: 'Home value inquiry' };
 const BRANDS = { harbison_standard: 'Harbison Standard', call_harbison: 'Call Harbison' };
+const CHANNELS = { google_ads: 'Google Ads', ai_search: 'AI search', youtube: 'YouTube', phone_call: 'Phone call', other_referral: 'Other referral', gbp: 'Google Business Profile' };
+const channelName = (c) => (c ? CHANNELS[c] || String(c).charAt(0).toUpperCase() + String(c).slice(1).replace(/_/g, ' ') : '—');
 const brandOf = (l) => (l.form_type === 'harbison_standard' ? 'harbison_standard' : 'call_harbison');
-const pillClass = (s) => (s === 'new' ? 'new' : s === 'closed_won' ? 'won' : ['closed_lost', 'not_a_fit', 'spam'].includes(s) ? 'lost' : ['appointment_set', 'options_presented', 'under_contract'].includes(s) ? 'hot' : '');
-const pill = (s) => `<span class="pill ${pillClass(s)}">${esc(STAGES[s] || s)}</span>`;
+// Stages are words. A dot only where the stage is also a state: new (needs a first call) and closed won.
+const stageTone = (s) => (s === 'new' ? 'critical' : s === 'closed_won' ? 'good' : ['closed_lost', 'not_a_fit', 'spam'].includes(s) ? 'plain ended' : 'plain');
+const stageTag = (s) => `<span class="dw ${stageTone(s)}">${esc(STAGES[s] || s)}</span>`;
+const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 const money = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`);
+const capFirst = (s) => { const t = String(s ?? ''); return t.charAt(0).toUpperCase() + t.slice(1); };
+const pctText = (ratio) => {
+  const p = (Number(ratio) || 0) * 100;
+  if (p >= 9.95) return `${Math.round(p)}%`;
+  if (p >= 0.05) return `${p.toFixed(1)}%`;
+  return p > 0 ? '<0.1%' : '0%';
+};
+const minutesText = (value) => {
+  const m = Math.max(0, Math.round(Number(value) || 0));
+  if (m < 60) return `${m} min`;
+  if (m < 1440) return `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+  const d = Math.round(m / 1440);
+  return `${d} day${d === 1 ? '' : 's'}`;
+};
 const when = (iso, withTime = true) => {
   if (!iso) return '—';
   const d = new Date(iso);
   return d.toLocaleString('en-US', withTime ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric' });
 };
+// Calendar days from the API ('YYYY-MM-DD') are dates, not instants: format them in UTC so they never shift a day.
+const dayDate = (day) => new Date(`${String(day).slice(0, 10)}T12:00:00Z`);
+const dayShort = (day) => dayDate(day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const dayLong = (day) => dayDate(day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 const ago = (iso) => {
   const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
   if (m < 60) return `${m}m ago`;
@@ -31,7 +53,7 @@ const toLocalInput = (iso) => {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
 const digits = (p) => String(p || '').replace(/[^\d+]/g, '');
-const leadSubline = (l) => l.address || [BRANDS[brandOf(l)], l.situation || l.email].filter(Boolean).join(' · ') || 'General inquiry';
+const leadSubline = (l) => l.address || [BRANDS[brandOf(l)], l.situation || l.email].filter(Boolean).join(', ') || 'General inquiry';
 
 async function api(action, { method = 'GET', params = {}, body } = {}) {
   const qs = new URLSearchParams({ action, ...params });
@@ -91,8 +113,19 @@ function showLogin(msg = '') {
   ($('#login-name').value ? $('#login-password') : $('#login-name')).focus();
 }
 let operationsEnabled = false;
-function showApp(name, enabled = false) {
+// The server says which stats sources can work ({ call_harbison, harbison_standard }). An older server sends
+// nothing, and then both tabs stay as they were. With only Call Harbison configured the tab is "Website stats".
+function applyAnalyticsTabs(sources) {
+  const known = Boolean(sources) && typeof sources === 'object';
+  const hasStandard = !known || Boolean(sources.harbison_standard);
+  const hasCall = !known || Boolean(sources.call_harbison);
+  $('#tab-analytics').hidden = !hasStandard;
+  $('#tab-analytics-call').hidden = !hasCall;
+  $('#tab-analytics-call').textContent = known && hasCall && !hasStandard ? 'Website stats' : 'Call Harbison stats';
+}
+function showApp(name, enabled = false, analyticsSources) {
   operationsEnabled = enabled;
+  applyAnalyticsTabs(analyticsSources);
   $('#login').hidden = true;
   $('#app').hidden = false;
   $('#who').textContent = name;
@@ -114,7 +147,7 @@ $('#login-form').addEventListener('submit', async (e) => {
   $('#login-err').textContent = '';
   try {
     const r = await api('login', { method: 'POST', body: { name: $('#login-name').value, password: $('#login-password').value } });
-    showApp(r.name, r.sellerOperationsEnabled);
+    showApp(r.name, r.sellerOperationsEnabled, r.analytics);
   } catch (err) {
     $('#login-err').textContent = err.message;
     $('#login-password').select();
@@ -130,8 +163,18 @@ $('#logout').addEventListener('click', async () => {
 
 // ---------- tabs ----------
 function openTab(name, navigate = true) {
+  const tabButton = document.querySelector(`[data-tab="${name}"]`);
+  if (!tabButton || tabButton.hidden) {
+    // A stats tab the server cannot serve (or an unknown tab) falls back to the dashboard.
+    name = 'dash';
+    if (!navigate) syncUrl({ tab: name, replace: true });
+  }
   const analytics = name.startsWith('analytics-');
   document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  // On narrow screens the tab row scrolls sideways: bring the current tab into view.
+  const strip = $('.tabs');
+  const selected = strip?.querySelector('[aria-selected="true"]');
+  if (selected && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = Math.max(0, selected.offsetLeft - (strip.clientWidth - selected.offsetWidth) / 2);
   $('#operations').hidden = name !== 'operations';
   if (name === 'operations') window.loadSellerOperations?.();
   $('#dash').hidden = name !== 'dash';
@@ -157,29 +200,261 @@ window.addEventListener('popstate', () => {
 });
 document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click', () => openTab(b.dataset.tab)));
 
-// ---------- dashboard ----------
-const bars = (el, obj, labels = {}) => {
-  const rows = Object.entries(obj || {}).sort((a, b) => b[1] - a[1]);
-  const max = Math.max(1, ...rows.map(([, n]) => n));
-  el.innerHTML = rows.length
-    ? rows.map(([k, n]) => `<div class="bar"><span>${esc(labels[k] || k.replace(/_/g, ' '))}</span><span class="track"><span class="fill" style="width:${(n / max) * 100}%"></span></span><span class="n">${n}</span></div>`).join('')
-    : '<p class="empty">Nothing yet.</p>';
+// ---------- charts: plain SVG. One blue for data, gold only for leads. ----------
+// drawChart(host, { kind: 'line' | 'columns', points, value, height, label, xTicks, xLabel, labelIdx, labelText,
+//   markClass, strip: { name, value }, tip(point, i) -> { title, rows: [{ value, label, key }] }, table: { head, rows } })
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const chartRegistry = new Map();
+const svgEl = (tag, attrs = {}, parent = null) => {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  if (parent) parent.appendChild(el);
+  return el;
 };
+function niceTicks(max, target = 4) {
+  if (!(max > 0)) return [0, 1];
+  const raw = max / target;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = Math.max(1, [1, 2, 5, 10].map((m) => m * mag).find((s) => s >= raw));
+  const top = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = 0; v <= top + 1e-9; v += step) ticks.push(v);
+  return ticks;
+}
+function tableView(t) {
+  const details = document.createElement('details');
+  details.className = 'table-view';
+  const summary = document.createElement('summary');
+  summary.textContent = 'Show as a table';
+  details.addEventListener('toggle', () => { summary.textContent = details.open ? 'Hide the table' : 'Show as a table'; });
+  const wrap = document.createElement('div');
+  wrap.className = 'table-scroll';
+  const table = document.createElement('table');
+  if (t.caption) { const c = table.createCaption(); c.className = 'sr-only'; c.textContent = t.caption; }
+  const head = table.createTHead().insertRow();
+  t.head.forEach((h) => { const th = document.createElement('th'); th.scope = 'col'; th.textContent = h; head.appendChild(th); });
+  const body = table.createTBody();
+  t.rows.forEach((r) => { const tr = body.insertRow(); r.forEach((cell) => { tr.insertCell().textContent = cell; }); });
+  wrap.appendChild(table);
+  details.append(summary, wrap);
+  return details;
+}
+function drawChart(host, cfg) {
+  if (!host) return;
+  host.textContent = '';
+  const plot = document.createElement('div');
+  plot.className = 'chart-plot';
+  host.appendChild(plot);
+  if (cfg.table && cfg.points.length) host.appendChild(tableView(cfg.table));
+  chartRegistry.set(host, cfg);
+  renderChart(host, cfg);
+}
+function renderChart(host, cfg) {
+  const plot = host.querySelector('.chart-plot');
+  if (!plot) return;
+  plot.textContent = '';
+  const n = cfg.points.length;
+  if (!n) { plot.innerHTML = `<p class="empty">${esc(cfg.empty || 'Nothing to show yet.')}</p>`; return; }
+  const W = Math.max(260, Math.floor(host.clientWidth || 640));
+  cfg.renderedWidth = W;
+  const columns = cfg.kind === 'columns';
+  const values = cfg.points.map((p) => Math.max(0, Number(cfg.value(p)) || 0));
+  const ticks = niceTicks(Math.max(...values), W < 480 ? 3 : 4);
+  const top = ticks[ticks.length - 1];
+  const tickText = (v) => (top >= 10000 ? `${fmt(v / 1000)}K` : fmt(v));
+  const strip = cfg.strip || null;
+  const left = Math.max(...ticks.map((t) => tickText(t).length), strip ? strip.name.length + 1 : 0) * 7 + 12;
+  const right = 8;
+  const padTop = 24;
+  const H = W < 480 ? Math.round(cfg.height * 0.72) : cfg.height;
+  const stripGap = strip ? 20 : 0;
+  const stripH = strip ? 32 : 0;
+  const axisH = 28;
+  const plotW = W - left - right;
+  const base = padTop + H;
+  const total = base + stripGap + stripH + axisH;
+  const y = (v) => base - (v / top) * H;
+  const band = plotW / n;
+  const step = n > 1 ? plotW / (n - 1) : plotW;
+  const x = (i) => (columns ? left + band * (i + 0.5) : n === 1 ? left + plotW / 2 : left + step * i);
+  const crisp = (v) => Math.round(v) + 0.5;
+
+  const svg = svgEl('svg', { width: W, height: total, viewBox: `0 0 ${W} ${total}`, 'aria-hidden': 'true', focusable: 'false' });
+  const hl = svgEl('rect', { class: 'band-hl', x: 0, y: padTop - 8, width: Math.max(0, band), height: H + 8, visibility: 'hidden' }, svg);
+  for (const t of ticks) {
+    svgEl('line', { class: t === 0 ? 'grid base' : 'grid', x1: left, x2: W - right, y1: crisp(y(t)), y2: crisp(y(t)) }, svg);
+    svgEl('text', { x: left - 8, y: Math.round(y(t)) + 4, 'text-anchor': 'end' }, svg).textContent = tickText(t);
+  }
+  const column = (cx, w, h, bottom, cls) => {
+    const x0 = cx - w / 2;
+    const x1 = x0 + w;
+    const y0 = bottom - h;
+    const r = Math.min(4, w / 2, h);
+    svgEl('path', { class: cls, d: `M${x0.toFixed(1)} ${bottom}V${(y0 + r).toFixed(1)}A${r} ${r} 0 0 1 ${(x0 + r).toFixed(1)} ${y0.toFixed(1)}H${(x1 - r).toFixed(1)}A${r} ${r} 0 0 1 ${x1.toFixed(1)} ${(y0 + r).toFixed(1)}V${bottom}Z` }, svg);
+  };
+  if (columns) {
+    const w = Math.max(2, Math.min(24, band - 2));
+    values.forEach((v, i) => { if (v > 0) column(x(i), w, Math.max(1, (v / top) * H), base, cfg.markClass ? cfg.markClass(cfg.points[i], i) : 'm-series'); });
+  } else {
+    const pts = values.map((v, i) => [x(i), y(v)]);
+    const d = pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)} ${py.toFixed(1)}`).join('');
+    if (n > 1) {
+      svgEl('path', { class: 'area', d: `${d}L${pts[n - 1][0].toFixed(1)} ${base}L${pts[0][0].toFixed(1)} ${base}Z` }, svg);
+      svgEl('path', { class: 'line', d }, svg);
+    }
+    for (const i of (n <= 14 ? pts.map((_, k) => k) : [n - 1])) svgEl('circle', { class: 'dot', cx: pts[i][0].toFixed(1), cy: pts[i][1].toFixed(1), r: 4 }, svg);
+  }
+  if (strip) {
+    const sv = cfg.points.map((p) => Math.max(0, Number(strip.value(p)) || 0));
+    const sMax = Math.max(1, ...sv);
+    const sBase = base + stripGap + stripH;
+    svgEl('line', { class: 'grid base', x1: left, x2: W - right, y1: crisp(sBase), y2: crisp(sBase) }, svg);
+    svgEl('text', { class: 'axis-name', x: left - 16, y: sBase - 2, 'text-anchor': 'end' }, svg).textContent = strip.name;
+    const w = Math.max(2, Math.min(12, (columns ? band : step) - 2));
+    sv.forEach((v, i) => { if (v > 0) column(x(i), w, Math.max(2, (v / sMax) * stripH), sBase, 'm-lead'); });
+  }
+  const axisY = total - 8;
+  const xt = typeof cfg.xTicks === 'function' ? cfg.xTicks(W, n) : (cfg.xTicks || []);
+  for (const i of xt) {
+    if (i < 0 || i >= n) continue;
+    const label = cfg.xLabel(cfg.points[i], i);
+    const half = label.length * 3.4;
+    let tx = x(i);
+    let anchor = 'middle';
+    if (tx + half > W) { anchor = 'end'; tx = Math.min(W, x(i) + (columns ? Math.min(12, band / 2) : 0)); }
+    else if (tx - half < 0) { anchor = 'start'; tx = Math.max(0, x(i) - (columns ? Math.min(12, band / 2) : 0)); }
+    svgEl('text', { x: tx.toFixed(1), y: axisY, 'text-anchor': anchor }, svg).textContent = label;
+  }
+  for (const i of new Set(cfg.labelIdx || [])) {
+    if (i == null || i < 0 || i >= n || values[i] <= 0) continue;
+    const text = cfg.labelText ? cfg.labelText(cfg.points[i], i) : fmt(values[i]);
+    const half = text.length * 3.6;
+    let tx = x(i);
+    let anchor = 'middle';
+    if (tx + half > W) { anchor = 'end'; tx = W; }
+    svgEl('text', { class: 'lbl', x: tx.toFixed(1), y: Math.round(y(values[i])) - 10, 'text-anchor': anchor }, svg).textContent = text;
+  }
+
+  // Hover and keyboard layer: the crosshair (line) or the column band finds the nearest point.
+  const cross = svgEl('line', { class: 'cross', x1: 0, x2: 0, y1: padTop - 8, y2: strip ? base + stripGap + stripH : base, visibility: 'hidden' }, svg);
+  const hdot = columns ? null : svgEl('circle', { class: 'dot', r: 5, cx: 0, cy: 0, visibility: 'hidden' }, svg);
+  const hit = svgEl('rect', { class: 'hit', x: left - (columns ? 0 : Math.min(12, step / 2)), y: 0, width: plotW + (columns ? 0 : Math.min(24, step)), height: base + stripGap + stripH }, svg);
+  const tip = document.createElement('div');
+  tip.className = 'tip';
+  tip.hidden = true;
+  plot.append(svg, tip);
+  let cur = -1;
+  const show = (index) => {
+    const i = Math.max(0, Math.min(n - 1, index));
+    cur = i;
+    const px = x(i);
+    if (columns) { hl.setAttribute('x', (px - band / 2).toFixed(1)); hl.setAttribute('visibility', 'visible'); }
+    else {
+      cross.setAttribute('x1', crisp(px)); cross.setAttribute('x2', crisp(px)); cross.setAttribute('visibility', 'visible');
+      hdot.setAttribute('cx', px.toFixed(1)); hdot.setAttribute('cy', y(values[i]).toFixed(1)); hdot.setAttribute('visibility', 'visible');
+    }
+    const info = cfg.tip(cfg.points[i], i);
+    tip.replaceChildren();
+    const title = document.createElement('div');
+    title.className = 'tip-t';
+    title.textContent = info.title;
+    tip.appendChild(title);
+    for (const row of info.rows) {
+      const r = document.createElement('div');
+      r.className = 'tip-r';
+      const key = document.createElement('span');
+      key.className = `tip-k ${row.key || ''}`;
+      if (!row.key) key.style.background = 'transparent';
+      const b = document.createElement('b');
+      b.textContent = row.value;
+      const l = document.createElement('span');
+      l.textContent = row.label;
+      r.append(key, b, l);
+      tip.appendChild(r);
+    }
+    tip.hidden = false;
+    const tw = tip.offsetWidth;
+    let tx = px + 16;
+    if (tx + tw > W) tx = px - 16 - tw;
+    if (tx < 0) tx = Math.max(0, Math.min(W - tw, px - tw / 2));
+    tip.style.transform = `translate(${Math.round(tx)}px,${padTop - 8}px)`;
+  };
+  const hide = () => {
+    cur = -1;
+    tip.hidden = true;
+    hl.setAttribute('visibility', 'hidden');
+    cross.setAttribute('visibility', 'hidden');
+    hdot?.setAttribute('visibility', 'hidden');
+  };
+  const indexAt = (e) => {
+    const px = e.clientX - svg.getBoundingClientRect().left;
+    return columns ? Math.floor((px - left) / band) : Math.round((px - left) / step);
+  };
+  hit.addEventListener('pointermove', (e) => show(indexAt(e)));
+  hit.addEventListener('pointerdown', (e) => show(indexAt(e)));
+  hit.addEventListener('pointerleave', () => { if (document.activeElement !== plot) hide(); });
+  plot.tabIndex = 0;
+  plot.setAttribute('role', 'group');
+  plot.setAttribute('aria-label', `${cfg.label}. Use the left and right arrow keys to read each value, or open the table below.`);
+  plot.onfocus = () => show(cur >= 0 ? cur : n - 1);
+  plot.onblur = hide;
+  plot.onkeydown = (e) => {
+    const moves = cur >= 0 ? { ArrowLeft: cur - 1, ArrowRight: cur + 1, Home: 0, End: n - 1 } : { ArrowLeft: n - 1, ArrowRight: 0, Home: 0, End: n - 1 };
+    if (e.key in moves) { e.preventDefault(); show(moves[e.key]); } else if (e.key === 'Escape') hide();
+  };
+}
+let chartResizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(chartResizeTimer);
+  chartResizeTimer = setTimeout(() => {
+    for (const [host, cfg] of chartRegistry) {
+      if (!host.isConnected) { chartRegistry.delete(host); continue; }
+      if (host.offsetWidth && Math.floor(host.clientWidth) !== cfg.renderedWidth) renderChart(host, cfg);
+    }
+  }, 150);
+});
+// Every n-th index counted back from the newest, so the latest point always has a date under it.
+const tickEvery = (n, count) => { const step = Math.max(1, Math.ceil(n / count)); const out = []; for (let i = n - 1; i >= 0; i -= step) out.push(i); return out; };
+
+// Ranked list: name and figure on one line, a thin bar under them. rows: [{ label, value }]
+function rankList(el, rows, { total = 0, limit = 8, barClass = '' } = {}) {
+  if (!el) return;
+  if (!rows.length) { el.innerHTML = '<p class="empty">Nothing yet.</p>'; return; }
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  const item = (r, i) => `<li${i >= limit ? ' hidden' : ''}><span class="k" title="${esc(r.label)}">${esc(r.label)}</span><span class="v">${fmt(r.value)}</span>${total ? `<span class="p">${pctText(r.value / total)}</span>` : ''}${r.value > 0 ? `<span class="b${barClass ? ` ${barClass}` : ''}" style="width:${((r.value / max) * 100).toFixed(2)}%"></span>` : ''}</li>`;
+  el.innerHTML = `<ol class="rank">${rows.map(item).join('')}</ol>${rows.length > limit ? `<button type="button" class="textbtn rank-more" aria-expanded="false">Show all ${fmt(rows.length)}</button>` : ''}`;
+  el.querySelector('.rank-more')?.addEventListener('click', (e) => {
+    const open = e.currentTarget.getAttribute('aria-expanded') !== 'true';
+    el.querySelectorAll('.rank li').forEach((li, i) => { if (i >= limit) li.hidden = !open; });
+    e.currentTarget.setAttribute('aria-expanded', String(open));
+    e.currentTarget.textContent = open ? 'Show fewer' : `Show all ${fmt(rows.length)}`;
+  });
+}
+// Counts keyed by name, largest first (or in the given order when `order` is passed).
+const bars = (el, obj, labels = {}, order = null) => {
+  const entries = Object.entries(obj || {});
+  const sorted = order
+    ? [...order.filter((k) => k in (obj || {})).map((k) => [k, obj[k]]), ...entries.filter(([k]) => !order.includes(k))]
+    : entries.sort((a, b) => b[1] - a[1]);
+  rankList(el, sorted.map(([k, n]) => ({ label: labels[k] || capFirst(k.replace(/_/g, ' ')), value: Number(n) || 0 })));
+};
+
+// ---------- dashboard ----------
+const figure = ({ value, label, go, big, state, sub }) => `<div class="fig kpi${big ? ' big' : ''}"${go ? ` data-go="${go}" role="button" tabindex="0"` : ''}><div class="fig-l">${esc(label)}</div><div class="fig-v">${esc(value)}</div><div class="fig-m">${state ? `<div class="fig-s"><span class="dw ${state[0]}">${esc(state[1])}</span></div>` : ''}${sub ? `<div class="fig-s">${esc(sub)}</div>` : ''}</div></div>`;
 
 async function loadDash() {
   let d;
   try { d = await api('stats'); } catch (e) { $('#kpis').innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
   const s = d.stats;
-  const kpi = (v, l, { go, alert } = {}) => `<div class="kpi${alert ? ' alert' : ''}"${go ? ` data-go="${go}" role="button" tabindex="0"` : ''}><div class="v">${v}</div><div class="l">${esc(l)}</div></div>`;
   $('#kpis').innerHTML = [
-    kpi(s.uncontacted, 'Waiting for first contact', { go: 'new', alert: s.uncontacted > 0 }),
-    kpi(s.followupsDue, 'Follow-ups due', { go: 'followups', alert: s.followupsDue > 0 }),
-    kpi(s.newToday, 'New today', { go: 'new' }),
-    kpi(s.new7, 'New · 7 days', { go: 'all' }),
-    kpi(s.openPipeline, 'Open pipeline', { go: 'open' }),
-    kpi(s.appointments7, 'Appointments · next 7 days', { go: 'open' }),
-    kpi(s.medianMinutesToContact == null ? '—' : `${s.medianMinutesToContact}m`, 'Median time to first contact · 30d'),
-    kpi(money(s.grossProfit90), `Gross profit · ${s.won90} closed · 90d`, { go: 'closed' }),
+    figure({ value: fmt(s.uncontacted), label: 'Waiting for first contact', go: 'new', big: true, state: s.uncontacted > 0 ? ['critical', 'Needs a call'] : ['good', 'Everyone contacted'] }),
+    figure({ value: fmt(s.followupsDue), label: 'Follow-ups due', go: 'followups', big: true, state: s.followupsDue > 0 ? ['critical', 'Due now'] : ['good', 'None due'] }),
+    figure({ value: fmt(s.newToday), label: 'New today', go: 'new' }),
+    figure({ value: fmt(s.new7), label: 'New, last 7\u00a0days', go: 'all' }),
+    figure({ value: fmt(s.openPipeline), label: 'Open pipeline', go: 'open' }),
+    figure({ value: fmt(s.appointments7), label: 'Appointments, next 7\u00a0days', go: 'open' }),
+    figure({ value: s.medianMinutesToContact == null ? '—' : minutesText(s.medianMinutesToContact), label: 'Median time to first contact, 30\u00a0days' }),
+    figure({ value: money(s.grossProfit90), label: 'Gross profit, 90\u00a0days', go: 'closed', sub: `${fmt(s.won90)} closed` }),
   ].join('');
   document.querySelectorAll('.kpi[data-go]').forEach((k) => {
     const go = () => { setView(k.dataset.go, false); openTab('leads'); };
@@ -187,18 +462,29 @@ async function loadDash() {
     k.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
 
-  const max = Math.max(1, ...s.weekly.map((w) => w.leads));
-  $('#spark').innerHTML = s.weekly.map((w) => `<div style="height:${Math.max(2, (w.leads / max) * 100)}%" title="Week ending ${esc(w.weekEnding)}: ${w.leads} leads"><span class="sr-only">Week ending ${esc(w.weekEnding)}: ${w.leads} leads</span></div>`).join('');
-  $('#spark-l').innerHTML = `<span>${esc(when(s.weekly[0].weekEnding, false))}</span><span>This week: ${s.weekly[s.weekly.length - 1].leads}</span>`;
+  const weeks = s.weekly || [];
+  const lastWeek = weeks.length - 1;
+  const peakWeek = weeks.reduce((best, w, i) => (w.leads > (weeks[best]?.leads ?? -1) ? i : best), 0);
+  $('#spark-l').innerHTML = weeks.length ? `<span>Last ${weeks.length} weeks</span><span class="lg"><i class="lg-bar"></i>Earlier weeks</span><span class="lg"><i class="lg-bar lead"></i>Latest week</span>` : '';
+  drawChart($('#spark'), {
+    kind: 'columns', height: 240, points: weeks, value: (w) => w.leads,
+    label: `Leads per week, ${weeks.length} weeks to ${weeks.length ? dayShort(weeks[lastWeek].weekEnding) : ''}`,
+    markClass: (w, i) => (i === lastWeek ? 'm-lead' : 'm-series'),
+    xTicks: (W, n) => tickEvery(n, W < 480 ? 3 : 4), xLabel: (w) => dayShort(w.weekEnding),
+    labelIdx: [lastWeek, peakWeek],
+    tip: (w, i) => ({ title: `${i === lastWeek ? 'Latest week, ' : ''}7 days to ${dayShort(w.weekEnding)}`, rows: [{ value: fmt(w.leads), label: w.leads === 1 ? 'lead' : 'leads', key: i === lastWeek ? 'lead' : 'series' }] }),
+    table: { caption: 'Leads per week', head: ['Week ending', 'Leads'], rows: weeks.map((w) => [dayShort(w.weekEnding), fmt(w.leads)]) },
+    empty: 'No leads yet.',
+  });
 
   $('#waiting').innerHTML = d.waiting.length
-    ? d.waiting.map((l) => `<li data-id="${esc(l.id)}"><span><strong>${esc(l.name)}</strong><br><span class="muted">${esc(leadSubline(l))}</span></span><span class="t due">${esc(l.minutes_waiting)} min</span></li>`).join('')
+    ? d.waiting.map((l) => `<li data-id="${esc(l.id)}"><button type="button" class="row-btn"><span><strong>${esc(l.name)}</strong><span class="sub">${esc(leadSubline(l))}</span></span><span class="t due">${esc(minutesText(l.minutes_waiting))}</span></button></li>`).join('')
     : '<li class="empty">Everyone has been contacted.</li>';
   $('#upcoming').innerHTML = d.upcoming.length
-    ? d.upcoming.map((l) => `<li data-id="${esc(l.id)}"><span><strong>${esc(l.name)}</strong><br><span class="muted">${esc(leadSubline(l))}</span></span><span class="t">${esc(when(l.appointment_at))}</span></li>`).join('')
+    ? d.upcoming.map((l) => `<li data-id="${esc(l.id)}"><button type="button" class="row-btn"><span><strong>${esc(l.name)}</strong><span class="sub">${esc(leadSubline(l))}</span></span><span class="t">${esc(when(l.appointment_at))}</span></button></li>`).join('')
     : '<li class="empty">No appointments scheduled.</li>';
-  bars($('#by-status'), s.byStatus, STAGES);
-  bars($('#by-channel'), s.byChannel);
+  bars($('#by-status'), s.byStatus, STAGES, Object.keys(STAGES));
+  bars($('#by-channel'), s.byChannel, CHANNELS);
   bars($('#by-route'), s.byRoute, ROUTES);
   bars($('#by-brand'), s.byBrand, BRANDS);
   loadHealth();
@@ -209,19 +495,21 @@ async function loadHealth() {
   if (!el) return;
   try {
     const { health: h } = await api('health');
-    const badge = (ok, text, warn = false) => `<span class="pill ${ok ? (warn ? 'hot' : 'won') : 'bad-p'}">${esc(text)}</span>`;
-    const emailLabel = !h.email.configured
-      ? 'Email alerts: off (RESEND_API_KEY unset)'
+    // One line per integration: its name, a status word with its dot, and what to do about it.
+    const line = (tone, name, word, detail = '') => `<li><span class="sl-name">${esc(name)}</span><span class="dw ${tone}">${esc(word)}</span><span class="sl-detail">${esc(detail)}</span></li>`;
+    const email = !h.email.configured
+      ? line('warning', 'Email alerts', 'Off', 'RESEND_API_KEY is not set')
       : h.email.sandboxSender
-        ? `Email alerts: sandbox sender (verify LEAD_FROM_EMAIL domain)`
-        : `Email alerts: ready (${h.email.recipients.join(', ')})`;
-    el.innerHTML = [
-      badge(true, 'Supabase CRM: connected'),
-      badge(h.email.configured, emailLabel, h.email.configured && h.email.sandboxSender),
-      badge(h.standardBridge.configured, h.standardBridge.configured ? 'Standard bridge: active' : 'Standard bridge: unset', !h.standardBridge.configured),
-      badge(true, h.webhook.configured ? 'Webhook: active' : 'Webhook: optional (off)', false),
-      badge(true, h.sms.configured ? `SMS: configured (customer ack ${h.sms.customerAckEnabled ? 'on' : 'off'})` : 'SMS: off', false),
-    ].join('');
+        ? line('warning', 'Email alerts', 'Sandbox sender', 'Verify the LEAD_FROM_EMAIL domain')
+        : line('good', 'Email alerts', 'Ready', `Sends to ${h.email.recipients.join(', ')}`);
+    el.classList.remove('muted');
+    el.innerHTML = `<ul>${[
+      line('good', 'Supabase CRM', 'Connected'),
+      email,
+      h.standardBridge.configured ? line('good', 'Standard bridge', 'Active') : line('warning', 'Standard bridge', 'Not set'),
+      h.webhook.configured ? line('good', 'Webhook', 'Active') : line('', 'Webhook', 'Off', 'Optional'),
+      h.sms.configured ? line('good', 'SMS', 'Configured', `Customer acknowledgement ${h.sms.customerAckEnabled ? 'on' : 'off'}`) : line('', 'SMS', 'Off'),
+    ].join('')}</ul>`;
   } catch {
     el.textContent = 'Could not check integration status.';
   }
@@ -235,7 +523,7 @@ $('#test-alert-btn')?.addEventListener('click', async (e) => {
   msg.className = 'status-msg';
   try {
     const r = await api('test-alert', { method: 'POST', body: {} });
-    msg.textContent = (r.channels || []).map((c) => c.detail).join(' · ') || 'Test alert sent.';
+    msg.textContent = (r.channels || []).map((c) => c.detail).join('; ') || 'Test alert sent.';
     msg.className = 'status-msg ok';
   } catch (err) {
     msg.textContent = err.message;
@@ -251,6 +539,8 @@ $('#test-alert-btn')?.addEventListener('click', async (e) => {
 
 // ---------- partners & ROI ----------
 $('#s-month').value = new Date().toISOString().slice(0, 7);
+const monthName = (m) => { const t = String(m || '').slice(0, 7); return /^\d{4}-\d{2}$/.test(t) ? new Date(`${t}-15T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : t; };
+const partnerStatus = (s) => `<span class="dw ${s === 'active' ? 'good' : ['paused', 'declined'].includes(s) ? 'plain ended' : 'plain'}">${esc(capFirst(String(s || '').replace(/_/g, ' ')))}</span>`;
 async function loadPartners() {
   let r;
   try { r = await api('partners'); } catch (e) {
@@ -260,11 +550,11 @@ async function loadPartners() {
   const baseUrl = location.origin.includes('localhost') ? 'https://www.callharbison.com' : location.origin;
   $('#partner-rows').innerHTML = (r.partners || []).length
     ? r.partners.map((p) => `<tr>
-        <td><strong>${esc(p.name)}</strong><span class="sub">${esc(p.category.replace(/_/g, ' '))} · <code>${esc(p.slug)}</code></span></td>
-        <td><span class="pill ${p.status === 'active' ? 'won' : ''}">${esc(p.status.replace(/_/g, ' '))}</span></td>
-        <td class="num-col">${Number(p.inquiries || 0)}</td>
-        <td class="num-col">${Number(p.appointments || 0)}</td>
-        <td class="num-col">${Number(p.closed || 0)}</td>
+        <td><strong>${esc(p.name)}</strong><span class="sub">${esc(capFirst(p.category.replace(/_/g, ' ')))}, <code>${esc(p.slug)}</code></span></td>
+        <td>${partnerStatus(p.status)}</td>
+        <td class="num-col">${fmt(p.inquiries)}</td>
+        <td class="num-col">${fmt(p.appointments)}</td>
+        <td class="num-col">${fmt(p.closed)}</td>
         <td class="num-col">${money(p.gross_profit || 0)}</td>
         <td><button type="button" class="btn ghost sm" data-copy="${esc(`${baseUrl}/family?ref=${encodeURIComponent(p.slug)}`)}">Copy link</button></td>
       </tr>`).join('')
@@ -272,11 +562,11 @@ async function loadPartners() {
 
   $('#funnel-rows').innerHTML = (r.funnel || []).length
     ? r.funnel.map((f) => `<tr>
-        <td>${esc(String(f.month).slice(0, 7))}</td>
-        <td>${esc(f.channel)}</td>
-        <td class="num-col">${Number(f.leads || 0)}</td>
-        <td class="num-col">${Number(f.qualified || 0)}</td>
-        <td class="num-col">${Number(f.closed || 0)}</td>
+        <td>${esc(monthName(f.month))}</td>
+        <td>${esc(channelName(f.channel))}</td>
+        <td class="num-col">${fmt(f.leads)}</td>
+        <td class="num-col">${fmt(f.qualified)}</td>
+        <td class="num-col">${fmt(f.closed)}</td>
         <td class="num-col">${f.spend != null ? money(f.spend) : '—'}</td>
         <td class="num-col">${f.cost_per_lead != null ? money(f.cost_per_lead) : '—'}</td>
         <td class="num-col">${f.roas != null ? `${Number(f.roas).toFixed(2)}×` : '—'}</td>
@@ -368,19 +658,19 @@ async function loadLeads(reset) {
   $('#leads-empty').hidden = list.items.length > 0;
   const due = (l) => l.next_followup && Date.parse(l.next_followup) <= Date.now();
   // Leads that came in through the Spanish pages (/es/...) are marked so the team replies in Spanish.
-  const spanishTag = (l) => (/^\/es(\/|$)/.test(l.source || '') ? ' · Spanish' : '');
-  $('#rows').innerHTML = list.items.map((l) => `<tr data-id="${esc(l.id)}">
+  const spanish = (l) => /^\/es(\/|$)/.test(l.source || '');
+  $('#rows').innerHTML = list.items.map((l) => `<tr data-id="${esc(l.id)}" tabindex="0">
       <td>${esc(when(l.created_at))}<span class="sub">${esc(ago(l.created_at))}</span></td>
-      <td><strong>${esc(l.name)}</strong><span class="sub">${esc(l.phone || l.email)}${spanishTag(l)}</span></td>
+      <td><strong>${esc(l.name)}</strong><span class="sub">${esc(l.phone || l.email)}</span>${spanish(l) ? '<span class="sub">Reply in Spanish</span>' : ''}</td>
       <td>${esc(l.address || 'Not supplied')}</td>
       <td>${esc(l.situation || '—')}${l.route_interest ? `<span class="sub">Path: ${esc(ROUTES[l.route_interest] || l.route_interest)}</span>` : ''}</td>
-      <td>${pill(l.status)}${l.do_not_contact ? '<span class="sub due">Do not contact</span>' : ''}</td>
-      <td class="${due(l) ? 'due' : ''}">${esc(when(l.next_followup))}</td>
-      <td>${esc(BRANDS[brandOf(l)])}<span class="sub">${esc(l.channel || '—')}</span></td></tr>`).join('');
+      <td>${stageTag(l.status)}${l.do_not_contact ? '<span class="sub due">Do not contact</span>' : ''}</td>
+      <td class="${due(l) ? 'due' : ''}">${esc(when(l.next_followup))}${due(l) ? '<span class="sub due">Overdue</span>' : ''}</td>
+      <td>${esc(BRANDS[brandOf(l)])}<span class="sub">${esc(channelName(l.channel))}</span></td></tr>`).join('');
   $('#cards').innerHTML = list.items.map((l) => `<div class="lead-card" data-id="${esc(l.id)}" role="button" tabindex="0">
-      <div class="row"><strong>${esc(l.name)}</strong>${pill(l.status)}</div>
-      <span class="muted">${esc(BRANDS[brandOf(l)])} · ${esc(l.address || l.email || 'General inquiry')}${spanishTag(l)}</span>
-      <div class="row"><span class="muted">${esc(l.situation || '')}</span><span class="${due(l) ? 'due' : 'muted'}">${l.next_followup ? `Follow up ${esc(when(l.next_followup))}` : esc(ago(l.created_at))}</span></div></div>`).join('');
+      <div class="row"><strong>${esc(l.name)}</strong>${stageTag(l.status)}</div>
+      <span class="muted">${esc(l.address || l.email || 'General inquiry')}</span>
+      <div class="row"><span class="muted">${esc([BRANDS[brandOf(l)], l.situation].filter(Boolean).join(', '))}</span><span class="${due(l) ? 'due' : 'muted'}">${l.next_followup ? `Follow up ${esc(when(l.next_followup))}` : esc(ago(l.created_at))}</span></div>${spanish(l) ? '<span class="muted">Reply in Spanish</span>' : ''}</div>`).join('');
   renderEmptyTrash();
 }
 ['#rows', '#cards'].forEach((sel) => {
@@ -501,7 +791,7 @@ async function runLeadImport(dryRun) {
   const msg = $('#imp-msg');
   const summary = $('#imp-summary');
   const raw = $('#imp-raw').value.trim();
-  if (!raw) { msg.textContent = 'Upload or paste CSV / JSON rows first.'; msg.className = 'status-msg bad'; $('#imp-raw').focus(); return; }
+  if (!raw) { msg.textContent = 'Upload or paste CSV or JSON rows first.'; msg.className = 'status-msg bad'; $('#imp-raw').focus(); return; }
   $('#imp-preview-btn').disabled = true;
   $('#imp-run-btn').disabled = true;
   msg.textContent = dryRun ? 'Checking rows…' : 'Importing…';
@@ -513,19 +803,19 @@ async function runLeadImport(dryRun) {
     });
     const c = r.counts || { ready: 0, duplicates: 0, invalid: 0 };
     if (dryRun) {
-      msg.textContent = `${c.ready} ready · ${c.duplicates} duplicate(s) skipped · ${c.invalid} invalid`;
+      msg.textContent = `${fmt(c.ready)} ready, ${fmt(c.duplicates)} duplicate(s) skipped, ${fmt(c.invalid)} invalid`;
       msg.className = `status-msg ${c.ready ? 'ok' : ''}`;
       const lines = [];
       if (r.preview?.length) {
-        lines.push(`<strong>Sample rows ready (${r.preview.length} of ${c.ready}):</strong><ul>${r.preview.map((p) => `<li><strong>${esc(p.name)}</strong> (${esc(p.contact || '—')}) · ${esc(BRANDS[p.brand] || p.brand)} · ${esc(String(p.created_at).slice(0, 10))}</li>`).join('')}</ul>`);
+        lines.push(`<strong>Sample rows ready (${r.preview.length} of ${fmt(c.ready)})</strong><ul>${r.preview.map((p) => `<li><strong>${esc(p.name)}</strong> (${esc(p.contact || '—')}), ${esc(BRANDS[p.brand] || p.brand)}, ${esc(String(p.created_at).slice(0, 10))}</li>`).join('')}</ul>`);
       }
       if (r.invalid?.length) {
-        lines.push(`<strong>Invalid rows (${c.invalid}):</strong><ul>${r.invalid.map((inv) => `<li>Row ${inv.row}: ${esc(inv.reason)}</li>`).join('')}</ul>`);
+        lines.push(`<strong>Invalid rows (${fmt(c.invalid)})</strong><ul>${r.invalid.map((inv) => `<li>Row ${inv.row}: ${esc(inv.reason)}</li>`).join('')}</ul>`);
       }
       summary.innerHTML = lines.join('') || 'All rows already exist in HQ (duplicates skipped).';
       summary.hidden = false;
     } else {
-      msg.textContent = `Imported ${r.imported} lead(s) (${c.duplicates} duplicate(s) skipped).`;
+      msg.textContent = `Imported ${fmt(r.imported)} lead(s) (${fmt(c.duplicates)} duplicate(s) skipped).`;
       msg.className = 'status-msg ok';
       summary.hidden = true;
       loadLeads(true);
@@ -563,7 +853,11 @@ const alertMsg = (m) => { $('#d-save-msg').textContent = m; $('#d-save-msg').cla
 function renderLead(l, events) {
   $('#d-name').textContent = l.name;
   renderTrashState(l);
-  $('#d-sub').textContent = `${BRANDS[brandOf(l)]} · ${l.address || 'Property not supplied'} · received ${when(l.created_at)}`;
+  $('#d-sub').replaceChildren(...[BRANDS[brandOf(l)], l.address || 'Property not supplied', `Received ${when(l.created_at)}`].map((text) => {
+    const span = document.createElement('span');
+    span.textContent = text;
+    return span;
+  }));
   $('#d-dnc').hidden = !l.do_not_contact;
   const tel = digits(l.phone);
   const contactButtons = l.do_not_contact || (operationsEnabled && !l.consent_response) ? [] : [
@@ -572,8 +866,8 @@ function renderLead(l, events) {
     l.email && `<a class="btn ghost" href="mailto:${esc(l.email)}">Email</a>`,
     l.address && `<a class="btn ghost" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.address)}" target="_blank" rel="noopener">Map</a>`,
   ].filter(Boolean);
-  if (operationsEnabled) contactButtons.push(`<a class="btn" href="/hq/operations?inquiry=${encodeURIComponent(l.id)}">Work this inquiry</a>`);
-  contactButtons.push(`<button class="btn ghost" type="button" id="copy-lead-link">Copy HQ link</button>`);
+  if (operationsEnabled) contactButtons.push(`<a class="btn ghost" href="/hq/operations?inquiry=${encodeURIComponent(l.id)}">Work this inquiry</a>`);
+  contactButtons.push(`<button class="textbtn" type="button" id="copy-lead-link">Copy HQ link</button>`);
   $('#d-actions').innerHTML = contactButtons.join('');
   $('#copy-lead-link')?.addEventListener('click', async (ev) => {
     // currentTarget is null once the handler awaits, so keep the button first.
@@ -599,7 +893,7 @@ function renderLead(l, events) {
     ['Condition', Array.isArray(l.condition_flags) ? l.condition_flags.join(', ') : ''],
     ['Goal', l.desired_outcome], ['Relationship', l.relationship], ['Help needed', l.help_needed],
     ['Prefers', l.contact_pref], ['Consent', consent || (l.form_type === 'harbison_standard' ? 'Inquiry only; no marketing opt-in recorded' : l.form_type === 'options' ? 'none recorded' : 'form notice')],
-    ['Source', [l.channel, l.ref_partner && `partner:${l.ref_partner}`, l.utm_source, l.utm_campaign].filter(Boolean).join(' · ')],
+    ['Source', [l.channel && channelName(l.channel), l.ref_partner && `partner:${l.ref_partner}`, l.utm_source, l.utm_campaign].filter(Boolean).join(', ')],
     ['Submitted from', l.source], ['Landing page', l.landing_page], ['Form', l.form_type],
     ['First contact', l.first_contact_at ? when(l.first_contact_at) : ''],
   ].filter(([, v]) => v);
@@ -608,7 +902,7 @@ function renderLead(l, events) {
   // When a Standard lead's notes are purely the untouched intake snapshot (already shown in #d-original),
   // present Team notes empty so staff don't have to edit around the raw intake block.
   const notesDuplicatesSnapshot = Boolean(snapshot?.detail && l.notes === snapshot.detail);
-  $('#f-notes').placeholder = notesDuplicatesSnapshot ? 'Add team follow-up notes… (original inquiry is preserved above)' : '';
+  $('#f-notes').placeholder = notesDuplicatesSnapshot ? 'Add team follow-up notes. The original inquiry is kept above.' : '';
 
   initialFormValues = {};
   for (const f of FIELDS) {
@@ -637,7 +931,7 @@ function renderTimeline(events) {
   const label = { status_change: 'Stage', note: 'Note', call: 'Call', text: 'Text', email: 'Email', appointment: 'Appointment', offer: 'Offer' };
   const pretty = (e) => (e.kind === 'status_change' ? String(e.detail || '').replace(/[a-z_]+/g, (s) => STAGES[s] || s) : e.detail);
   $('#d-timeline').innerHTML = events.length
-    ? events.map((e) => `<li><div><strong>${esc(label[e.kind] || e.kind)}</strong> — ${esc(pretty(e))}</div><div class="meta">${esc(when(e.at))}${e.actor ? ` · ${esc(e.actor)}` : ''}</div></li>`).join('')
+    ? events.map((e) => `<li><div class="what"><strong>${esc(label[e.kind] || e.kind)}</strong><span>${esc(pretty(e))}</span></div><div class="meta">${esc(when(e.at))}${e.actor ? ` by ${esc(e.actor)}` : ''}</div></li>`).join('')
     : '<li class="empty">No activity yet.</li>';
 }
 
@@ -704,13 +998,13 @@ $('#note-form').addEventListener('submit', async (e) => {
 
 // ---------- boot ----------
 try { $('#login-name').value = localStorage.getItem('hq_name') || ''; } catch {}
-api('me').then((r) => showApp(r.name, r.sellerOperationsEnabled)).catch((e) => showLogin(e.status === 503 ? e.message : ''));
+api('me').then((r) => showApp(r.name, r.sellerOperationsEnabled, r.analytics)).catch((e) => showLogin(e.status === 503 ? e.message : ''));
 
 // ---------- Trash: delete, restore, delete forever ----------
 function renderTrashState(l) {
   const trashed = Boolean(l.deleted_at);
   $('#d-trash').hidden = !trashed;
-  $('#d-trash-text').textContent = trashed ? `In Trash — deleted ${when(l.deleted_at)}${l.deleted_by ? ` by ${l.deleted_by}` : ''}` : '';
+  $('#d-trash-text').textContent = trashed ? `In Trash, deleted ${when(l.deleted_at)}${l.deleted_by ? ` by ${l.deleted_by}` : ''}` : '';
   $('#d-form').hidden = trashed;
   $('#note-form').hidden = trashed;
   $('#d-delete-start').hidden = trashed;
