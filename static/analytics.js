@@ -1,6 +1,10 @@
-// Recorded page views only: no customer/form fields, cookies, or cross-site IDs.
+// Recorded page views and four funnel steps by name only: no customer/form fields, cookies, or cross-site IDs.
 const hbhStartAnalytics = () => {
-  if (!['www.callharbison.com', 'callharbison.com'].includes(location.hostname) || /^\/(hq|api)(\/|$)/.test(location.pathname)) return;
+  // The build names its own host on <html data-site-host>. That host and its www/apex twin count, as do the original two.
+  const hosts = ['www.callharbison.com', 'callharbison.com'];
+  const siteHost = String(document.documentElement?.dataset?.siteHost || '').toLowerCase();
+  if (siteHost) hosts.push(siteHost, siteHost.startsWith('www.') ? siteHost.slice(4) : `www.${siteHost}`);
+  if (!hosts.includes(location.hostname) || /^\/(hq|api)(\/|$)/.test(location.pathname)) return;
   let optedOut = false;
   const allowed = () => {
     if (optedOut) return false;
@@ -23,14 +27,15 @@ const hbhStartAnalytics = () => {
   } catch { return; }
   let queue = Promise.resolve();
   const token = crypto.randomUUID();
+  const post = async (type, extra) => {
+    const response = await fetch('/api/track', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sid, type, path: location.pathname, pageToken: token, ...extra }) });
+    const result = await response.json();
+    if (!response.ok || !result.stored) throw new Error('Analytics not recorded');
+  };
   const send = (type, extra = {}) => {
     if (!allowed()) return;
-    queue = queue.catch(() => {}).then(async () => {
-      const response = await fetch('/api/track', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sid, type, path: location.pathname, pageToken: token, ...extra }) });
-      const result = await response.json();
-      if (!response.ok || !result.stored) throw new Error('Analytics not recorded');
-    }).catch(() => {});
+    queue = queue.catch(() => {}).then(() => post(type, extra)).catch(() => {});
   };
   let host = null;
   try { host = document.referrer ? new URL(document.referrer).hostname : null; } catch {}
@@ -38,7 +43,30 @@ const hbhStartAnalytics = () => {
     : /youtube|facebook|instagram|linkedin|tiktok|reddit/.test(host) ? 'social' : 'referral';
   // Raw campaign parameters may contain contact data; retain them only with the inquiry in CRM.
   if (first) send('start', { referrerHost: host, referrerType });
-  send('pageview', { title: document.title });
+  send('pageview');
+
+  // Funnel steps. script.js reports them to the dataLayer through its track(); only the name is sent from here, never
+  // a label, value or field. Each goes once per page (the server counts once per session). They are sent at once,
+  // not queued, because a sent lead is followed by the jump to /thank-you and keepalive lets the request finish.
+  const reported = new Set();
+  const step = (name) => {
+    if (reported.has(name) || !allowed()) return;
+    reported.add(name);
+    post('event', { name }).catch(() => {});
+  };
+  const layer = (window.dataLayer = window.dataLayer || []);
+  const push = layer.push;
+  layer.push = function (...items) {
+    try {
+      for (const item of items) {
+        const name = item && typeof item === 'object' ? item.event : null;
+        if (name === 'lead_form_start' || name === 'generate_lead' || name === 'phone_click') step(name);
+        else if (name === 'cta_click' && item.cta === 'handoff_sms') step('text_click');
+      }
+    } catch {}
+    return push.apply(this, items); // Tag Manager and gtag.js chain onto this the same way
+  };
+  document.addEventListener('click', (event) => { if (event.target?.closest?.('a[href^="sms:"]')) step('text_click'); }, true);
 
   const MAX_SECONDS = 1800;
   const IDLE_MS = 60000;

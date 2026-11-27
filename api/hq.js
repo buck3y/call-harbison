@@ -14,6 +14,7 @@ import { demoLeadReason } from '../lib/demo-leads.js';
 import { clientIp, createRateLimiter } from '../lib/request-ip.js';
 import { prepareLeadImport } from '../lib/lead-import.js';
 import { fetchWithRetry } from '../lib/fetch-retry.js';
+import { analyticsSources, getAnalyticsStore, isLocalAnalytics } from '../lib/analytics-store.js';
 import { notificationRecipients } from './leads.js';
 
 export const STATUSES = ['new', 'contact_attempted', 'connected', 'qualified', 'appointment_set', 'property_reviewed', 'options_presented', 'nurture', 'under_contract', 'closed_won', 'closed_lost', 'not_a_fit', 'spam'];
@@ -347,7 +348,7 @@ export default async function handler(req, res, env = process.env, phase = COMMA
     }
     const name = (typeof body.name === 'string' ? body.name.trim() : '').slice(0, 40) || 'Team';
     setCookie(res, makeSession(name, env), SESSION_HOURS * 3600);
-    return res.status(200).json({ ok: true, name, sellerOperationsEnabled: env.SELLER_OPERATIONS_ENABLED === 'true' });
+    return res.status(200).json({ ok: true, name, sellerOperationsEnabled: env.SELLER_OPERATIONS_ENABLED === 'true', analytics: analyticsSources(env) });
   }
 
   if (action === 'logout') {
@@ -362,7 +363,8 @@ export default async function handler(req, res, env = process.env, phase = COMMA
 
   try {
     if (await sellerOperations({ action, req, res, body, session, env, sb, phase })) return;
-    if (action === 'me') return res.status(200).json({ ok: true, name: session.n, sellerOperationsEnabled: env.SELLER_OPERATIONS_ENABLED === 'true' });
+    // `analytics` tells the panel which website-stats tabs can work: 'local', 'shared', or null when not configured.
+    if (action === 'me') return res.status(200).json({ ok: true, name: session.n, sellerOperationsEnabled: env.SELLER_OPERATIONS_ENABLED === 'true', analytics: analyticsSources(env) });
 
     if (action === 'health' && req.method === 'GET') {
       const fromRaw = (env.LEAD_FROM_EMAIL || '').trim();
@@ -489,9 +491,11 @@ export default async function handler(req, res, env = process.env, phase = COMMA
     }
 
     if (action === 'analytics' && req.method === 'GET') {
-      if (!env.CRM_INGEST_SECRET) return res.status(503).json({ ok: false, error: 'Website analytics connection is not configured.' });
       const days = Math.min(Math.max(Math.floor(Number(url.searchParams.get('days')) || 30), 1), 365);
       const site = url.searchParams.get('site') || 'harbison_standard';
+      // ANALYTICS_STORE=local: this site's numbers come from this server. Harbison Standard's stay shared.
+      if (site === 'call_harbison' && isLocalAnalytics(env)) return res.status(200).json({ ok: true, site, analytics: getAnalyticsStore(env).query({ days }) });
+      if (!env.CRM_INGEST_SECRET) return res.status(503).json({ ok: false, error: 'Website analytics connection is not configured.' });
       if (!['harbison_standard', 'call_harbison'].includes(site)) return res.status(400).json({ ok: false, error: 'Unknown website.' });
       const response = await fetch(`https://www.harbisonstandard.com/api/hq/analytics?days=${days}&site=${site}`, {
         headers: { Authorization: `Bearer ${env.CRM_INGEST_SECRET}` }, signal: AbortSignal.timeout(25000), redirect: 'error',
@@ -499,7 +503,7 @@ export default async function handler(req, res, env = process.env, phase = COMMA
       if (!response.ok) return res.status(502).json({ ok: false, error: 'Website analytics are temporarily unavailable.' });
       const analytics = await response.json();
       if (analytics.site !== site || !analytics.totals || !Array.isArray(analytics.daily)) throw new Error('Invalid analytics response');
-      return res.status(200).json({ ok: true, site, analytics });
+      return res.status(200).json({ ok: true, site, analytics: { ...analytics, source: 'shared', timezone: 'UTC' } });
     }
 
     if (action === 'demo-leads' && req.method === 'GET') {

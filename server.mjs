@@ -11,6 +11,10 @@ import leadsHandler from './api/leads.js';
 import hqHandler from './api/hq.js';
 import intakeHandler from './api/intake.js';
 import trackHandler from './api/track.js';
+import { flushAnalytics } from './lib/analytics-store.js';
+
+// Writes the site analytics kept on this server (ANALYTICS_STORE=local) to disk. Called before the process exits.
+export { flushAnalytics };
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const MAX_BODY_BYTES = 4.5 * 1024 * 1024; // the ceiling Vercel applies to a function request
@@ -279,9 +283,11 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
 
   const stop = (signal) => {
     console.log(`${signal} received: finishing open requests`);
-    server.close(() => process.exit(0));
+    // The last few seconds of site analytics are still in memory: write them once the open requests are done.
+    const exit = () => { flushAnalytics(); process.exit(0); };
+    server.close(exit);
     server.closeIdleConnections?.();
-    setTimeout(() => process.exit(0), 10000).unref();
+    setTimeout(exit, 10000).unref();
   };
   process.on('SIGTERM', () => stop('SIGTERM'));
   process.on('SIGINT', () => stop('SIGINT'));

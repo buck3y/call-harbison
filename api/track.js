@@ -1,6 +1,23 @@
 // Same-origin collector. Only this server can label records as Call Harbison.
+// ANALYTICS_STORE=local records on this machine (lib/analytics-store.js). Otherwise each event is forwarded to the
+// shared collector at Harbison Standard, as before.
 import { createHmac } from 'node:crypto';
 import { clientIp } from '../lib/request-ip.js';
+import { EVENT_NAMES, getAnalyticsStore, isLocalAnalytics } from '../lib/analytics-store.js';
+
+// Only the checked fields go to the store, which reduces the address and user agent to a hash and three categories.
+function recordLocally(req, res, env, body, path) {
+  try {
+    const { stored } = getAnalyticsStore(env).record(
+      { sid: body.sid, type: body.type, path, pageToken: body.pageToken, durationSeconds: body.durationSeconds, referrerType: body.referrerType, referrerHost: body.referrerHost, name: body.name },
+      { ip: clientIp(req), userAgent: req.headers?.['user-agent'] },
+    );
+    return res.status(stored ? 200 : 202).json({ ok: true, stored });
+  } catch (err) {
+    console.error(`[analytics] local store unavailable (${err?.code || err?.message})`);
+    return res.status(503).json({ ok: false });
+  }
+}
 
 export default async function handler(req, res, env = process.env) {
   res.setHeader('Cache-Control', 'no-store');
@@ -10,13 +27,20 @@ export default async function handler(req, res, env = process.env) {
     return res.end ? res.status(204).end('') : res.status(204).json({ ok: true });
   }
   if (req.method !== 'POST') return res.status(405).json({ ok: false });
-  if (!env.CRM_INGEST_SECRET) return res.status(503).json({ ok: false });
+  const local = isLocalAnalytics(env);
+  if (!local && !env.CRM_INGEST_SECRET) return res.status(503).json({ ok: false });
   if (req.headers?.dnt === '1' || req.headers?.['sec-gpc'] === '1') return res.status(202).json({ ok: true, stored: false });
   let body = req.body;
   try { if (typeof body === 'string') body = JSON.parse(body); } catch { return res.status(400).json({ ok: false }); }
-  if (!body || !/^[a-f0-9-]{36}$/i.test(body.sid || '') || !['start', 'pageview', 'heartbeat', 'end'].includes(body.type)) return res.status(400).json({ ok: false });
+  if (!body || !/^[a-f0-9-]{36}$/i.test(body.sid || '') || !['start', 'pageview', 'heartbeat', 'end', 'event'].includes(body.type)) return res.status(400).json({ ok: false });
   const path = typeof body.path === 'string' ? body.path.split(/[?#]/)[0].slice(0, 300) : '/';
   if (!path.startsWith('/') || path.startsWith('//') || /^\/(hq|api)(\/|$)/.test(path)) return res.status(400).json({ ok: false });
+  // Funnel steps, by name only. The shared collector does not know them, so they are recorded only in local mode.
+  if (body.type === 'event') {
+    if (typeof body.name !== 'string' || !Object.hasOwn(EVENT_NAMES, body.name)) return res.status(400).json({ ok: false });
+    if (!local) return res.status(202).json({ ok: true, stored: false });
+  }
+  if (local) return recordLocally(req, res, env, body, path);
   const ip = clientIp(req) || 'unknown';
   const visitor = createHmac('sha256', env.CRM_INGEST_SECRET).update(`call_harbison:${new Date().toISOString().slice(0, 10)}:${ip}`).digest('hex');
   // Explicit transport allowlist: never forward inquiry fields or arbitrary campaign/title text.

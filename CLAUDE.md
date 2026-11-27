@@ -41,7 +41,8 @@ The dev server does not watch files: after editing, run `npm run build` (it serv
 - `api/leads.js`: public leads, idempotent, with an alert outbox.
 - `api/hq.js`: the private HQ CRM, password-protected, at `/hq`.
 - `api/intake.js`: an authenticated bridge from Harbison Standard.
-- `api/track.js`: first-party analytics.
+- `api/track.js`: first-party analytics. By default it forwards to the shared Harbison Standard collector. With `ANALYTICS_STORE=local` (VPS) it records on disk through `lib/analytics-store.js`, whose header documents the file format and the day-compaction rule, and the HQ `analytics` action reads the same store. Never store an IP, user agent, query string or title there.
+- `ANALYTICS_DEFAULTS=off` (a build setting) drops the built-in GA and Metricool IDs, so those trackers load only with `GA_MEASUREMENT_ID` / `METRICOOL_HASH`.
 - `server.mjs` runs those four handlers and serves `dist/` on a VPS. It reads `vercel.json` for redirects, rewrites and headers, so add routing rules there, not in the server. `deploy/` holds the systemd unit, the Caddy config and the release script; a VPS build sets `VERCEL_INSIGHTS=off`.
 - `lib/` holds the shared helpers. `static/hq/` is a separate app with its own CSS; public-site restyles don't apply to it.
 

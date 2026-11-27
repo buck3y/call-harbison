@@ -15,4 +15,7 @@ supabase/.temp/
 
 # Disposable local verification harness (preserved outside committed source).
 .local-test/
+
+# Site analytics recorded locally (ANALYTICS_STORE=local without ANALYTICS_DIR or a systemd state folder).
+.data/
 .neon

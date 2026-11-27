@@ -24,6 +24,20 @@ export function resolveGtmId(raw) {
   return /^GTM-[A-Z0-9]{4,}$/.test(value) && !/^GTM-X+$/.test(value) ? value : '';
 }
 
+// A Metricool tracker hash is hexadecimal. Anything else (an empty or placeholder env var) falls back to the default.
+export function resolveMetricoolHash(raw, fallback = '398cd80eb0d6d2a7ebd652d00db3bb8') {
+  const value = (raw || '').trim().toLowerCase();
+  return /^[a-f0-9]{16,64}$/.test(value) ? value : fallback;
+}
+
+// Third-party trackers. ANALYTICS_DEFAULTS=off (the VPS build) drops the built-in IDs, so Google Analytics and
+// Metricool load only with the owner's own GA_MEASUREMENT_ID and METRICOOL_HASH. Unset keeps the defaults.
+export function trackerIds(env = process.env) {
+  const fallback = String(env.ANALYTICS_DEFAULTS || '').trim() === 'off' ? '' : undefined;
+  return { gaId: resolveGaId(env.GA_MEASUREMENT_ID, fallback), metricoolHash: resolveMetricoolHash(env.METRICOOL_HASH, fallback) };
+}
+const trackers = trackerIds();
+
 export default {
   name: 'Call Harbison',
   tagline: 'Property problem? Call Harbison.',
@@ -62,7 +76,10 @@ export default {
   serviceAreas: ['Bakersfield', 'Tehachapi', 'California City', 'Stallion Springs', 'Kern County'],
 
   // Google Analytics 4 / Google tag ID. Defaults to the account's tag; override with GA_MEASUREMENT_ID on Vercel.
-  gaId: resolveGaId(process.env.GA_MEASUREMENT_ID),
+  // Empty with ANALYTICS_DEFAULTS=off and no GA_MEASUREMENT_ID: Google Analytics is then left out of the pages.
+  gaId: trackers.gaId,
+  // Metricool tracker hash. Defaults to the account's; override with METRICOOL_HASH. Empty (left out) as above.
+  metricoolHash: trackers.metricoolHash,
   // Optional Google Tag Manager container (GTM-XXXXXXX). Preferred for Ads conversions + call tracking. Set GTM_ID on Vercel.
   gtmId: resolveGtmId(process.env.GTM_ID),
   // Vercel Web Analytics and Speed Insights are served by Vercel itself. A build for any other host sets VERCEL_INSIGHTS=off.

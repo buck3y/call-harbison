@@ -12,7 +12,7 @@ have not been run on a real server yet, so read the first deploy's output carefu
 | --- | --- |
 | Caddy, ports 80 and 443 | HTTPS certificates, compression, the redirect from `callharbison.com` to `www.callharbison.com` |
 | Node app, `127.0.0.1:3000` (`server.mjs`) | Serves `./dist` and the four API routes. Reads `vercel.json` for redirects, rewrites and headers, so both hosts answer the same way |
-| Neon or Supabase, Resend, Twilio | Unchanged. Leads and HQ data stay in the hosted database. Nothing is stored on the server |
+| Neon or Supabase, Resend, Twilio | Unchanged. Leads and HQ data stay in the hosted database. The only thing kept on the server is the site analytics (see "Site analytics") |
 
 ## One-time setup
 
@@ -54,7 +54,9 @@ install -m 640 -o root -g callharbison /srv/call-harbison/repo/.env.example /etc
 nano /etc/call-harbison.env
 ```
 
-Set `SITE_URL`, at least one lead destination, `HQ_PASSWORD`, and remove the `#` in front of `VERCEL_INSIGHTS=off`.
+Set `SITE_URL`, at least one lead destination, `HQ_PASSWORD`, and remove the `#` in front of `VERCEL_INSIGHTS=off`,
+`ANALYTICS_STORE=local` and `ANALYTICS_DEFAULTS=off`. With the last one, Google Analytics and Metricool load only if
+`GA_MEASUREMENT_ID` and `METRICOOL_HASH` hold the owner's own IDs.
 The same values the Vercel project uses will work. One `KEY=value` per line, no spaces around `=`, and double quotes
 around a value that contains spaces.
 
@@ -112,20 +114,48 @@ curl -s http://127.0.0.1:3000/healthz
 ```
 
 Changing a setting: edit `/etc/call-harbison.env`, then `sudo systemctl restart call-harbison`. Settings that are
-baked into the pages (`SITE_URL`, `GA_MEASUREMENT_ID`, `GTM_ID`, `VERCEL_INSIGHTS`) need a deploy instead.
+baked into the pages (`SITE_URL`, `GA_MEASUREMENT_ID`, `GTM_ID`, `METRICOOL_HASH`, `ANALYTICS_DEFAULTS`, `VERCEL_INSIGHTS`)
+need a deploy instead.
 
 ## What is different from Vercel
 
 - **Routing rules.** `vercel.json` is still the only place for redirects, rewrites and headers. `server.mjs` reads it
   at start, so a rule added there works on both hosts.
 - **Vercel Web Analytics and Speed Insights** do not exist off Vercel. `VERCEL_INSIGHTS=off` keeps their scripts out
-  of the pages. Google Analytics, Tag Manager, Metricool and the first-party stats in HQ work as before.
+  of the pages. Google Analytics, Tag Manager and Metricool work as before, but with `ANALYTICS_DEFAULTS=off` only
+  with IDs set in the settings file. The first-party stats in HQ are kept on this server (below).
 - **Visitor addresses.** The rate limits read `X-Real-IP`. On Vercel the platform sets it. Here `server.mjs` sets it
   from what the local proxy reports and ignores anything a visitor sends. If the proxy is not on the same machine
   (Docker, a load balancer), set `TRUST_PROXY=private`.
 - **Request size.** The 4.5 MB limit Vercel applies to a function is kept.
 - **Nothing is scheduled**, as on Vercel. The scripts in `scripts/` remain manual.
 - **Compression and HTTPS** are Caddy's job. The Node app speaks plain HTTP on 127.0.0.1 only.
+
+## Site analytics
+
+`ANALYTICS_STORE=local` makes `/api/track` record the site's own statistics on this server instead of forwarding
+them to the shared collector at Harbison Standard, and HQ's website stats read them from here. Without the setting
+nothing changes. The numbers start from zero when it is turned on; the earlier history stays at Harbison Standard.
+
+- **Where:** `/var/lib/call-harbison/analytics` (the unit's `StateDirectory`; `ANALYTICS_DIR` moves it). `live.json`
+  holds today in detail, `days/YYYY-MM-DD.json` one finished day each as counters, plus `meta.json` and `secret` (the
+  key for the visitor hash, unless `ANALYTICS_SECRET` is set). The format is described at the top of
+  `lib/analytics-store.js`.
+- **It is the one piece of state on the server.** Deploys and rollbacks leave it alone. Back it up with the server,
+  for example `tar -czf analytics-$(date +%F).tgz -C /var/lib/call-harbison analytics`. Losing it loses the stats
+  history and nothing else.
+- **Collected:** page views per path, the first and last page of a visit, active time (at most 30 minutes a visit),
+  the kind of source (direct, search, social, referral) and the referring site's name, device type, browser and
+  operating system as a few broad categories, the hour of the day, and four steps by name only: form started, lead
+  sent, call click, text click.
+- **Not collected:** IP addresses, user-agent strings, query strings, page titles, form fields, cookies. Robots are
+  ignored, and so are browsers that send Do Not Track or Global Privacy Control, visitors who declined the consent
+  banner, and anyone who used the opt-out on `/privacy`. Visitors are counted with a daily keyed hash of the date and
+  the address, kept only for that day. There is no country or city: those came from Vercel's headers.
+- **Retention:** detail for the current day only (Bakersfield time). After midnight the day is reduced to counters
+  and its session ids and visitor hashes are deleted. The counters stay for as long as the files exist.
+- The app writes to disk every few seconds and when it stops, so a restart loses nothing and a crash at most the
+  last few seconds. Run one app process per folder.
 
 ## Moving the live domain from Vercel
 

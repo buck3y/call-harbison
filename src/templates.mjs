@@ -219,7 +219,7 @@ function head({ title, description, path, image, noindex = false, ld, preload, a
     ? `<script>window.hbhLoadTagManager=function(){if(window.hbhGtm||!hbhOk())return;window.hbhGtm=1;(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${esc(site.gtmId)}')};hbhLoadTagManager();</script>`
     : '';
   return `<!doctype html>
-<html lang="en-US" data-command-phase="${COMMAND_PHASE}">
+<html lang="en-US" data-command-phase="${COMMAND_PHASE}" data-site-host="${esc(new URL(site.url).hostname)}">
 <head>
   <script>function hbhOk(){try{var s=JSON.parse(localStorage.getItem('hbh-consent')||'null');return!!s&&s.value==='granted'&&Date.now()-s.at<31536e6}catch(e){return false}}</script>
   ${ga}
@@ -262,7 +262,7 @@ function head({ title, description, path, image, noindex = false, ld, preload, a
   <script defer src="/_vercel/insights/script.js"></script>
   <script>window.si=window.si||function(){(window.siq=window.siq||[]).push(arguments)};</script>
   <script defer src="/_vercel/speed-insights/script.js"></script>` : ''}
-  ${noindex ? '' : `<script>window.hbhLoadMetricool=function(){if(window.hbhMetricool||!hbhOk())return;window.hbhMetricool=1;function loadScript(a){var b=document.getElementsByTagName("head")[0],c=document.createElement("script");c.type="text/javascript",c.src="https://tracker.metricool.com/resources/be.js",c.onreadystatechange=a,c.onload=a,b.appendChild(c)}loadScript(function(){beTracker.t({hash:"398cd80eb0d6d2a7ebd652d00db3bb8"})})};hbhLoadMetricool();</script>`}
+  ${noindex || !site.metricoolHash ? '' : `<script>window.hbhLoadMetricool=function(){if(window.hbhMetricool||!hbhOk())return;window.hbhMetricool=1;function loadScript(a){var b=document.getElementsByTagName("head")[0],c=document.createElement("script");c.type="text/javascript",c.src="https://tracker.metricool.com/resources/be.js",c.onreadystatechange=a,c.onload=a,b.appendChild(c)}loadScript(function(){beTracker.t({hash:"${esc(site.metricoolHash)}"})})};hbhLoadMetricool();</script>`}
   ${ld ? `<script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>` : ''}
 </head>`;
 }
