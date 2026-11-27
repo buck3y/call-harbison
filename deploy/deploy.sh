@@ -59,8 +59,10 @@ if [ "${SKIP_TESTS:-}" = "1" ]; then
   say "Skipping tests (SKIP_TESTS=1)"
 else
   say "Running tests"
-  # An empty environment: the tests can never see a real database address or a messaging key.
-  as_app env -i PATH="$PATH" HOME="$(getent passwd "$APP_USER" | cut -d: -f6)" npm test
+  # A near-empty environment: the tests can never see a real database address or a messaging key.
+  test_env=(PATH="$PATH" HOME="$(getent passwd "$APP_USER" | cut -d: -f6)")
+  if [ -n "${TMPDIR:-}" ]; then test_env+=(TMPDIR="$TMPDIR"); fi
+  as_app env -i "${test_env[@]}" npm test
 fi
 
 say "Building"
