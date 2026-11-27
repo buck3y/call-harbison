@@ -5,6 +5,30 @@
   const MAX_AGE = 365 * 24 * 60 * 60 * 1000;
   const spanish = (document.documentElement.lang || '').toLowerCase().startsWith('es');
   const say = (english, es) => (spanish ? es : english);
+  // <html data-trackers> lists the third-party tools this page can load after consent ("ga gtm metricool"); empty
+  // means none. A page without the attribute keeps the general wording.
+  const trackers = document.documentElement?.dataset?.trackers;
+  const NAMES = { ga: 'Google Analytics', gtm: 'Google Tag Manager', metricool: 'Metricool' };
+  const named = String(trackers || '').split(/\s+/).map((key) => NAMES[key]).filter(Boolean);
+  const listOf = (items, and) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} ${and} ${items[items.length - 1]}`);
+  const usageText = () => {
+    if (trackers === undefined) {
+      return say(
+        'We collect website usage data, such as pages visited and device type, with Google Analytics and similar tools to understand what helps visitors and improve this site. Accept to allow it, or decline and we will use only what the site needs to work. Details are in our ',
+        'Recopilamos datos de uso del sitio, como las páginas visitadas y el tipo de dispositivo, con Google Analytics y herramientas similares para entender qué ayuda a los visitantes y mejorar este sitio. Acepte para permitirlo, o rechace y usaremos solo lo que el sitio necesita para funcionar. Los detalles están en nuestra '
+      );
+    }
+    if (!named.length) {
+      return say(
+        'We count visits to this site ourselves, noting things such as the pages visited and the type of device, to understand what helps visitors and improve the site. We use no cookies or third-party tools for this. Accept to allow it, or decline and we will stop counting your visits. Details are in our ',
+        'Contamos nosotros mismos las visitas a este sitio, anotando datos como las páginas visitadas y el tipo de dispositivo, para entender qué ayuda a los visitantes y mejorar el sitio. No usamos cookies ni herramientas de terceros para esto. Acepte para permitirlo, o rechace y dejaremos de contar sus visitas. Los detalles están en nuestra '
+      );
+    }
+    return say(
+      `We collect website usage data, such as pages visited and device type, with ${listOf(['our own statistics', ...named], 'and')} to understand what helps visitors and improve this site. Accept to allow it, or decline and we will use only what the site needs to work. Details are in our `,
+      `Recopilamos datos de uso del sitio, como las páginas visitadas y el tipo de dispositivo, con ${listOf(['nuestras propias estadísticas', ...named], 'y')} para entender qué ayuda a los visitantes y mejorar este sitio. Acepte para permitirlo, o rechace y usaremos solo lo que el sitio necesita para funcionar. Los detalles están en nuestra `
+    );
+  };
 
   const read = () => {
     try {
@@ -36,16 +60,13 @@
     banner = document.createElement('div');
     banner.className = 'consent';
     banner.setAttribute('role', 'dialog');
-    banner.setAttribute('aria-label', say('Cookie and privacy choices', 'Opciones de cookies y privacidad'));
+    banner.setAttribute('aria-label', trackers !== undefined && !named.length ? say('Privacy choices', 'Opciones de privacidad') : say('Cookie and privacy choices', 'Opciones de cookies y privacidad'));
     const title = document.createElement('p');
     title.className = 'consent-title';
     title.textContent = say('Your privacy choices', 'Sus opciones de privacidad');
     const text = document.createElement('p');
     text.className = 'consent-text';
-    text.append(say(
-      'We collect website usage data, such as pages visited and device type, with Google Analytics and similar tools to understand what helps visitors and improve this site. Accept to allow it, or decline and we will use only what the site needs to work. Details are in our ',
-      'Recopilamos datos de uso del sitio, como las páginas visitadas y el tipo de dispositivo, con Google Analytics y herramientas similares para entender qué ayuda a los visitantes y mejorar este sitio. Acepte para permitirlo, o rechace y usaremos solo lo que el sitio necesita para funcionar. Los detalles están en nuestra '
-    ));
+    text.append(usageText());
     const link = document.createElement('a');
     link.href = spanish ? '/es/privacy' : '/privacy';
     link.textContent = say('Privacy Policy', 'Política de privacidad');

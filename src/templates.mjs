@@ -50,7 +50,7 @@ export const PAGE_DATES = {
   '/investors': '2026-11-12',
   '/home-value': '2026-11-12',
   '/about': '2026-11-05',
-  '/privacy': '2026-10-17',
+  '/privacy': '2026-11-27',
 };
 export const contentDate = (path, fallback = BUILD_DATE) => PAGE_DATES[path] || fallback;
 const niceDate = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -217,8 +217,10 @@ function head({ title, description, path, image, noindex = false, ld, preload, a
   const gtm = site.gtmId
     ? `<script>window.hbhLoadTagManager=function(){if(window.hbhGtm||!hbhOk())return;window.hbhGtm=1;(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${esc(site.gtmId)}')};hbhLoadTagManager();</script>`
     : '';
+  // The third-party tools this page can load after consent. static/consent.js words the banner from it.
+  const trackers = [site.gaId && 'ga', site.gtmId && 'gtm', !noindex && site.metricoolHash && 'metricool'].filter(Boolean).join(' ');
   return `<!doctype html>
-<html lang="en-US" data-command-phase="${COMMAND_PHASE}" data-site-host="${esc(new URL(site.url).hostname)}">
+<html lang="en-US" data-command-phase="${COMMAND_PHASE}" data-site-host="${esc(new URL(site.url).hostname)}" data-trackers="${trackers}">
 <head>
   <script>function hbhOk(){try{var s=JSON.parse(localStorage.getItem('hbh-consent')||'null');return!!s&&s.value==='granted'&&Date.now()-s.at<31536e6}catch(e){return false}}</script>
   ${ga}
@@ -1383,6 +1385,20 @@ export function notFoundPage() {
 }
 
 export function privacyPage() {
+  // The analytics sentences follow the build: which consent-gated third-party tools are configured (site.config.mjs,
+  // trackerIds()), and whether Vercel's own measurement scripts are in the pages (site.vercelInsights). Each sentence
+  // describes what static/analytics.js, api/track.js and lib/analytics-store.js actually do.
+  const tools = [site.gaId && 'Google Analytics', site.gtmId && 'Google Tag Manager', site.metricoolHash && 'Metricool'].filter(Boolean);
+  const technical = tools.length
+    ? 'We also collect standard technical data (such as browser type, pages visited, and referring site) through cookies and analytics tools.'
+    : 'We also collect standard technical data (such as browser type, pages visited, and referring site) through our own website statistics, without cookies.';
+  const choices = tools.length
+    ? `<h2 class="prose-h">Cookies and analytics choices</h2>
+    <p>When you first visit, a banner asks whether to allow these analytics and marketing measurement tools:</p>
+    <ul>${tools.map((t) => `<li>${t}</li>`).join('')}</ul>
+    <p>They load only if you accept. If you decline, or your browser sends a Global Privacy Control or Do Not Track signal, they stay off. Declining also stops our own website statistics from counting your visits.</p>`
+    : `<h2 class="prose-h">Analytics choices</h2>
+    <p>When you first visit, a banner asks whether to allow our own website statistics. They count your visits until you decline; declining stops them. ${site.vercelInsights ? 'Apart from Vercel’s measurement described below, this site uses no third-party analytics or advertising tools.' : 'This site uses no third-party analytics or advertising tools.'}</p>`;
   return simplePage({
     title: 'Privacy Policy',
     description: `How ${site.name} collects, uses, and protects information submitted through this website.`,
@@ -1391,11 +1407,14 @@ export function privacyPage() {
     body: `<p class="muted-note">Last updated: ${niceDate(contentDate('/privacy'))}</p>
     <p>${esc(site.name)} (“we,” “us”) respects your privacy. This policy explains what information we collect through this website and how we use it.</p>
     <h2 class="prose-h">Information we collect</h2>
-    <p>When you submit a form, we collect the information you provide, such as your name, phone number, email address, property address, and details about your situation. We also collect standard technical data (such as browser type, pages visited, and referring site) through cookies and analytics tools.</p>
-    <p>Our first-party website statistics record page views and estimated active time, separately from your form details. Raw IP addresses are not retained. Daily visitor hashes rotate, and browser Do Not Track and Global Privacy Control choices are honored for this first-party tracking.</p>
+    <p>When you submit a form, we collect the information you provide, such as your name, phone number, email address, property address, and details about your situation. ${technical}</p>
+    <p>Our own website statistics record the pages you view, how long each page is in active use, how you arrived (directly, from a search engine, from social media or from another site, and that site’s name), your type of device, browser and operating system, and whether you started a form, sent a request, or used a call or text link. They are kept separately from your form details.</p>
+    ${site.vercelInsights ? '<p>Because this site is hosted on Vercel, the statistics may also include the approximate city, region and country your connection comes from, as Vercel reports it.</p>' : ''}
+    <p>A random visit number is kept in your browser’s session storage, not in a cookie, and is replaced after 30 minutes without activity. Raw IP addresses are not retained. Daily visitor hashes rotate, and browser Do Not Track and Global Privacy Control choices are honored for this first-party tracking.</p>
     <p><button type="button" class="btn btn-ghost" data-analytics-optout>Disable first-party analytics in this browser</button></p>
-    <h2 class="prose-h">Cookies and analytics choices</h2>
-    <p>When you first visit, a banner asks whether to allow analytics and marketing measurement tools such as Google Analytics and Metricool. They load only if you accept. If you decline, or your browser sends a Global Privacy Control or Do Not Track signal, they stay off. Use the Privacy choices link in the footer to change your choice at any time.</p>
+    ${choices}
+    ${site.vercelInsights ? '<p>Because this site is hosted on Vercel, Vercel Web Analytics and Speed Insights also measure page views and loading speed. The banner does not turn them off.</p>' : ''}
+    <p>Use the Privacy choices link in the footer to change your choice at any time.</p>
     <h2 class="prose-h">How we use it</h2>
     <ul>
       <li>To respond to your inquiry and evaluate your property</li>

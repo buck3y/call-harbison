@@ -14,7 +14,7 @@ const hbhStartAnalytics = () => {
   document.querySelector('[data-analytics-optout]')?.addEventListener('click', (event) => {
     optedOut = true;
     try { localStorage.setItem('hbh_analytics', 'off'); } catch {}
-    event.target.textContent = 'First-party analytics disabled in this browser';
+    event.target.textContent = String(document.documentElement?.lang || '').startsWith('es') ? 'Análisis propio desactivado en este navegador' : 'First-party analytics disabled in this browser';
   });
   if (!allowed()) return;
   let sid, first;
