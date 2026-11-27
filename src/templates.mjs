@@ -619,7 +619,7 @@ function detailPage({ item, path, crumbs, eyebrow, extra = '', form = {}, pageTy
       ${answerBox(esc(item.answer))}
       <h2 class="prose-h">${esc(item.title)}</h2>
       ${item.body.map((p) => `<p>${esc(p)}</p>`).join('\n      ')}
-      ${(localSections[item.slug] || []).map(([h, paragraphs]) => `<section${item.slug === 'land-development' ? ' id="tehachapi-land"' : ''}><h2>${esc(h)}</h2>${paragraphs.map(p => `<p>${p}</p>`).join('')}</section>`).join('')}
+      ${(localSections[item.slug] || []).map(([h, paragraphs]) => `<section${item.slug === 'land-development' ? ' id="tehachapi-land"' : ''}><h2 class="prose-h">${esc(h)}</h2>${paragraphs.map(p => `<p>${p}</p>`).join('')}</section>`).join('')}
       ${extra}
       <p class="updated">Last updated ${niceDate(contentDate(path))} · Reviewed by the ${esc(site.name)} team</p>
     </article>
@@ -865,7 +865,7 @@ export function inquiryPage(item) {
 <section class="section"><div class="container detail-grid"><article class="prose">
       ${item.paragraphs.map(p => `<p>${esc(p)}</p>`).join('')}
       <p><a href="/situations/land-development">Land and development due diligence</a> · <a href="/how-it-works#estimator">Illustrative net-proceeds calculator</a></p>
-      <h2>Choose your next conversation</h2><ul>${inquiryPages.filter(p => p.slug !== item.slug).map(p => `<li><a href="/${p.slug}">${esc(p.title)}</a></li>`).join('')}</ul>
+      <h2 class="prose-h">Choose your next conversation</h2><ul>${inquiryPages.filter(p => p.slug !== item.slug).map(p => `<li><a href="/${p.slug}">${esc(p.title)}</a></li>`).join('')}</ul>
     </article><aside class="lead-card" id="lead-form"><h2>Start a conversation</h2>
       <form data-lead-form data-form-type="options" method="post" action="/api/leads" novalidate>
         <input type="hidden" name="form_type" value="options"><input type="hidden" name="route_interest" value="${item.route}">
@@ -874,7 +874,7 @@ export function inquiryPage(item) {
         <label for="inquiry-phone">Phone</label><input id="inquiry-phone" name="phone" type="tel" autocomplete="tel" required>
         <label for="inquiry-email">Email (optional)</label><input id="inquiry-email" name="email" type="email" autocomplete="email">
         <label for="inquiry-area">Area of interest (optional)</label><select id="inquiry-area" name="location_interest"><option value="">Choose an area</option>${areas.map(a => `<option value="${a.slug}">${esc(a.name)}</option>`).join('')}</select>
-        <p>No property ownership or address is required to ask a question. Share property details privately during follow-up.</p>
+        <p class="form-hint">No property ownership or address is required to ask a question. Share property details privately during follow-up.</p>
         <label class="check"><input type="checkbox" name="consent_response" value="yes" required><span>${esc(site.name)} may contact me by phone, text, or email about this inquiry.</span></label>
         <label class="check"><input type="checkbox" name="consent_marketing" value="yes"><span>Also send me occasional property tips and market updates. (optional)</span></label>
         <label class="hp" aria-hidden="true">Company<input name="company" tabindex="-1" autocomplete="off"></label>
@@ -905,10 +905,12 @@ const detailChecks = (name, list) => `<div class="choice-grid">${list
   .join('')}</div>`;
 
 // ---------- Seller tools: second opinion, when not to sell, inherited-house deadlines ----------
-function toolPage({ title, description, path, heading, intro, body, pageType, form = '', image = images.classic }) {
+function toolPage({ title, description, path, heading, intro, body, pageType, form = '', image = images.classic, crumb = title }) {
+  // Visible crumbs use the tool's short name (as in the nav and on the index); `title` stays for <title> and SEO
+  const crumbs = [['Home', '/'], ['Seller tools', '/seller-tools'], [crumb, path]];
   return page(
-    { title: pageTitle(title), description, path, pageType, hasForm: Boolean(form), ld: graph({ path, title: pageTitle(title), description, image: `${site.url}${ogDefault}`, crumbs: [['Home', '/'], [title, path]] }) },
-    `${imageHeader(image, `${crumbNav([['Home', '/'], [title, path]])}
+    { title: pageTitle(title), description, path, pageType, hasForm: Boolean(form), ld: graph({ path, title: pageTitle(title), description, image: `${site.url}${ogDefault}`, crumbs }) },
+    `${imageHeader(image, `${crumbNav(crumbs)}
     <h1 class="page-title">${heading}</h1>
     <p class="page-intro">${intro}</p>`)}
 <section class="section tool-page">
@@ -939,6 +941,7 @@ export function secondOpinionPage() {
     title: 'Get a Second Opinion on a Cash Offer',
     description: 'Already have a cash offer on your Kern County house? Text a photo and a licensed local agent will explain the terms in plain English. Free, no obligation.',
     path: '/second-opinion',
+    crumb: 'Second opinion on an offer',
     pageType: 'second_opinion',
     heading: 'Already have a cash offer? <em>Get a second opinion</em>',
     intro: `Text a photo of any cash offer or purchase contract to ${esc(site.phone)}. Nathanael will explain in plain English what it says: who the buyer is, when they can walk away, and roughly what you would net. It’s free, even if you never sell to us.`,
@@ -954,7 +957,7 @@ const notToSell = [
   ['You are behind on payments, but your income is back', 'Talk to a HUD-approved housing counselor first. It’s free. <a href="https://www.consumerfinance.gov/find-a-housing-counselor/" rel="noopener" target="_blank">Find one here</a>. Ask your loan servicer about a loan modification or a repayment plan before you decide to sell.'],
   ['You inherited the house and want to keep it', 'If an heir moves in as their main home, California’s Prop 19 may let the family keep the parent’s property-tax base. Check the <a href="/inherited-house-deadlines">inherited house deadlines</a> first.'],
   ['There is a reverse mortgage and the house is worth less than the balance', 'Reverse mortgages are usually non-recourse. Heirs may be able to let the lender take the house without owing the difference. Ask the loan servicer or a housing counselor before you sell.'],
-  ['You want the highest possible price and have the time and money for repairs', 'Fixing up and listing can bring a higher price. The <a href="/how-it-works#estimator">net estimator</a> shows the trade-off.'],
+  ['You want the highest possible price and have the time and money for repairs', 'Fixing up and listing can bring a higher price. The <a href="/seller-net-sheet">net sheet</a> shows the trade-off.'],
 ];
 
 export function whenNotToSellPage() {
@@ -962,6 +965,7 @@ export function whenNotToSellPage() {
     title: 'When You Shouldn’t Sell Your House to Us',
     description: 'Five situations where a direct cash sale is usually the wrong call, and what Kern County owners can look at instead. From Call Harbison.',
     path: '/when-not-to-sell',
+    crumb: toolCopy.cNot,
     pageType: 'when_not_to_sell',
     heading: 'Five times we’ll tell you <em>not to sell to us</em>',
     intro: 'Harbison buys houses and also lists them, so we don’t need to talk you into either one. Here is when a direct cash sale is usually the wrong call, and what to look at instead.',
@@ -980,18 +984,20 @@ export function deadlinesPage() {
     title: 'Inherited House Deadlines in California',
     description: 'See the dates that may matter for an inherited California house: Prop 19, simplified probate, reverse mortgages and property tax. Runs in your browser; nothing is saved.',
     path: '/inherited-house-deadlines',
+    crumb: toolCopy.cDead,
     pageType: 'deadlines',
     heading: 'Inherited a house? <em>See the dates that matter</em>',
     intro: 'Answer a few questions to see the deadlines that may apply to an inherited California house. Everything runs in your browser. Nothing is saved or sent unless you choose to send it.',
     body: `<form class="deadline-form" data-deadlines novalidate>
       <label class="dl-date">Date of death<input type="date" name="dod" required></label>
+      <p class="form-status" role="status" aria-live="polite"></p>
       ${yn('primary', 'Was it the parent’s or grandparent’s main home?', false)}
       ${yn('movein', 'Will a child or grandchild move in as their main home?')}
       ${yn('hecm', 'Is there a reverse mortgage on the house?')}
       ${yn('value', 'Is the house likely worth $750,000 or less?')}
       <button class="btn btn-gold" type="submit">Show my dates</button>
-      <p class="form-status" role="status" aria-live="polite"></p>
     </form>
+    <h2 class="tool-h" data-deadline-h hidden>Your dates</h2>
     <ol class="timeline" data-deadline-out hidden></ol>
     <p class="tool-note">General information, not legal or tax advice. Figures as of November 2026. Confirm with a probate attorney or the Kern County Assessor before you rely on a date.</p>`,
     form: leadForm({ situation: 'I inherited the property', heading: 'Talk it through with Nathanael', pageType: 'deadlines' }),
@@ -1028,7 +1034,7 @@ export function sellerToolsPage() {
 <section class="section tool-index">
   <div class="container">
     ${toolCards.map(([group, cards]) => `<h2 class="tool-group">${group}</h2>
-    <ul class="tool-grid">${cards.map(([href, name, desc, meta, cta]) => `<li class="tool-card"><h3><a href="${href}" data-cta="${cta}">${name}</a></h3><p>${desc}</p>${meta ? `<p class="tool-meta">${meta}</p>` : ''}</li>`).join('')}</ul>`).join('\n    ')}
+    <ul class="tool-grid">${cards.map(([href, name, desc, , cta]) => `<li class="tool-card"><h3><a href="${href}" data-cta="${cta}">${name}</a></h3><p>${desc}</p></li>`).join('')}</ul>`).join('\n    ')}
     <p class="tool-close">Prefer to talk it through? Call or text <a class="link" href="tel:${site.phoneHref}">${esc(site.phone)}</a>. Nathanael will show you both numbers, cash and listing, and tell you which one nets more.</p>
     <p class="tool-note">${C.idxNote}</p>
   </div>
@@ -1037,7 +1043,7 @@ export function sellerToolsPage() {
 }
 
 const money = (name, label, hint = '') => `<label class="ns-field"><span>${label}</span><input name="${name}" inputmode="decimal" autocomplete="off" placeholder="$"></label>${hint ? `<p class="field-hint">${hint}</p>` : ''}`;
-const payer = (name) => choiceSet(name, C.nsPayer, 'radio', [['seller', C.pSeller], ['split', C.pSplit], ['buyer', C.pBuyer]], 'choice-chips');
+const payer = (name) => choiceSet(name, C.nsPayer, 'radio', [['seller', C.pSeller], ['split', C.pSplit], ['buyer', C.pBuyer]], 'choice-row');
 const nsRows = [[C.rPrice, 'price'], [C.rPayoffs, 'payoffs'], [C.rLiens, 'liens'], [C.rComm, 'commission'], [C.rFees, 'buyerFees'], [C.rTax, 'transferTax'], [C.rEscrow, 'escrow'], [C.rRepairs, 'repairs'], [C.rOther, 'other'], [C.rWait, 'waiting']];
 
 export function netSheetPage() {
@@ -1045,6 +1051,7 @@ export function netSheetPage() {
     title: C.nsTitle,
     description: C.nsDesc,
     path: '/seller-net-sheet',
+    crumb: C.cNet,
     pageType: 'net_sheet',
     heading: 'What would I <em>walk away with?</em>',
     intro: C.nsIntro,
@@ -1052,7 +1059,7 @@ export function netSheetPage() {
       <div class="ns-cols">
         <fieldset class="ns-block"><legend>${C.nsColA}</legend>
           ${money('priceA', C.nsPriceA, C.nsPriceAH)}
-          ${choiceSet('commA', C.nsComm, 'radio', [1, 2, 3, 4, 5, 6].map((n) => [String(n), `${n}%`]), 'choice-chips')}
+          ${choiceSet('commA', C.nsComm, 'radio', [1, 2, 3, 4, 5, 6].map((n) => [String(n), `${n}%`]), 'choice-row choice-six')}
           <p class="field-hint">${C.nsCommH}</p>
           ${money('escrowA', C.nsEscrow, C.nsEscrowH)}
           ${money('repairsA', C.nsRepairs)}
@@ -1078,19 +1085,19 @@ export function netSheetPage() {
         </fieldset>
         <fieldset class="ns-block"><legend>${C.nsWait}</legend>
           ${money('monthly', C.nsMonthly, C.nsMonthlyH)}
-          ${choiceSet('mainhome', C.nsMain, 'radio', [['yes', 'Yes'], ['no', 'No'], ['unsure', 'Not sure']], 'choice-chips')}
+          ${choiceSet('mainhome', C.nsMain, 'radio', [['yes', 'Yes'], ['no', 'No'], ['unsure', 'Not sure']], 'choice-row')}
         </fieldset>
       </div>
     </form>
     <section class="tool-out ns-out" data-net-out aria-labelledby="ns-out-h">
       <h2 id="ns-out-h">${C.nsOut}</h2>
+      <ul class="ns-missing" hidden></ul>
       <div class="compare-wrap"><table class="compare ns-table"><thead><tr><th scope="col"><span class="sr-only">Line</span></th><th scope="col">${C.nsColA}</th><th scope="col">${C.nsColB}</th></tr></thead><tbody>
         ${nsRows.map(([label, key]) => `<tr><th scope="row">${label}</th><td data-a="${key}">—</td><td data-b="${key}">—</td></tr>`).join('')}
         <tr class="total"><th scope="row">${C.rNet}</th><td data-a="net">—</td><td data-b="net">—</td></tr>
       </tbody></table></div>
       <p class="verdict" role="status" aria-live="polite"></p>
       <p class="ns-hold" hidden></p>
-      <ul class="ns-missing" hidden></ul>
       <p class="tool-note">${C.nsProration}</p>
       <p class="tool-note">${C.nsTaxRate}</p>
       <p class="tool-note">${C.nsDisclaimer}</p>
@@ -1112,11 +1119,12 @@ export function whichPathPage() {
     title: C.qTitle,
     description: C.qDesc,
     path: '/which-path-fits',
+    crumb: C.cPath,
     pageType: 'which_path',
     heading: 'Which path <em>fits me?</em>',
     intro: C.qIntro,
     body: `<form class="tool-form quiz" data-tool="which-path" novalidate>
-      ${quizQuestions.map(([id, q, type, opts]) => choiceSet(id, q, type, opts)).join('\n      ')}
+      ${quizQuestions.map(([id, q, type, opts]) => choiceSet(id, q, type, opts, opts.length === 3 ? 'choice-row' : 'choice-list')).join('\n      ')}
       <button class="btn btn-gold" type="submit">${C.qShow}</button>
       <p class="form-status" role="status" aria-live="polite"></p>
     </form>
@@ -1125,7 +1133,7 @@ export function whichPathPage() {
       <h3>${C.qWhy}</h3>
       <ul class="why">${quizReasons.map(([id, text]) => `<li data-reason="${id}" hidden>${text}</li>`).join('')}</ul>
       <h3 data-notes-h hidden>${C.qNotes}</h3>
-      <ul class="notes">${quizNotes.map(([key, text, href]) => `<li data-when="${key}" hidden><p>${text}</p>${href ? `<p><a class="link" href="${href}"${extLink(href)}>Learn more</a></p>` : ''}</li>`).join('')}</ul>
+      <ul class="notes">${quizNotes.map(([key, text, href, linkText]) => `<li data-when="${key}" hidden><p>${text}</p>${href ? `<p><a class="link" href="${href}"${extLink(href)}>${linkText || 'Learn more'}</a></p>` : ''}</li>`).join('')}</ul>
       <p class="tool-cta"><a class="btn btn-gold" href="/#lead-form" data-cta="which_path_talk">${C.ctaTalk}</a><a class="link" href="/seller-net-sheet">${C.ctaNet}</a></p>
       <p class="tool-note">${C.qFooter}</p>
     </section>`,
@@ -1137,6 +1145,7 @@ export function paperworkPage() {
     title: C.pTitle,
     description: C.pDesc,
     path: '/paperwork-checklist',
+    crumb: C.cPaper,
     pageType: 'paperwork',
     heading: 'Paperwork <em>checklist</em>',
     intro: C.pIntro,
@@ -1147,7 +1156,7 @@ export function paperworkPage() {
       <p class="pw-count" role="status" aria-live="polite"></p>
       ${paperGroups.map(([group, items]) => `<div class="pw-group"><h2>${group}</h2><ul class="pw-list">${items
         .map(([when, title, why, href]) => `<li data-when="${when}"><label class="check-item"><input type="checkbox"><span>${title}</span></label>${why ? `<p>${why}</p>` : ''}${href ? `<p class="pw-where"><a href="${href}"${extLink(href)}>Where to get it</a></p>` : ''}</li>`).join('')}</ul></div>`).join('\n      ')}
-      <p class="tool-cta no-print"><button class="btn btn-ghost" type="button" data-print>${C.pPrint}</button><a class="btn btn-gold" href="/#lead-form" data-cta="paperwork_talk">${C.ctaTalk}</a></p>
+      <p class="tool-cta no-print"><a class="btn btn-gold" href="/#lead-form" data-cta="paperwork_talk">${C.ctaTalk}</a><button class="btn btn-ghost" type="button" data-print>${C.pPrint}</button></p>
       <p class="tool-note">${C.pFooter}</p>
     </section>`,
   });
@@ -1161,6 +1170,7 @@ export function handoffToolPage(tool) {
     title: tool.title,
     description: tool.desc,
     path: `/${tool.slug}`,
+    crumb: tool.nav,
     pageType: `tool_${tool.route}`,
     heading: tool.heading,
     intro: tool.intro,
@@ -1173,7 +1183,7 @@ export function handoffToolPage(tool) {
       </div>
       <form class="tool-form handoff-form" data-tool="handoff" data-kind="${tool.slug}" data-route="${tool.route}" data-situation="${esc(tool.situation)}" data-phone="${site.phoneHref}" data-email="${esc(site.email)}" novalidate>
         <h2>${H.formH}</h2>
-        ${tool.chips.length ? choiceSet('topic', tool.chipsH, 'checkbox', tool.chips.map((c) => [c, c]), 'choice-chips') : ''}
+        ${tool.chips.length ? choiceSet('topic', tool.chipsH, 'checkbox', tool.chips.map((c) => [c, c]), 'choice-two') : ''}
         <label class="ns-field"><span>${H.street}</span><input name="street" autocomplete="address-line1" required></label>
         <label class="ns-field"><span>${H.zip}</span><input name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="10" required></label>
         <p class="form-status" role="status" aria-live="polite"></p>
@@ -1439,7 +1449,7 @@ function familyLeadForm() {
       <h2>What property are you trying to figure out?</h2>
       <form data-lead-form data-form-type="family_transition" data-steps method="post" action="/api/leads" novalidate>
         <input type="hidden" name="form_type" value="family_transition">
-        <ol class="step-dots" aria-hidden="true"><li class="on"></li><li></li><li></li><li></li></ol>
+        <ol class="step-dots" aria-hidden="true"><li class="on"><span>Property</span></li><li><span>Situation</span></li><li><span>Help</span></li><li><span>Contact</span></li></ol>
         <fieldset class="fstep" data-step="1">
           <legend class="sr-only">Step 1 of 4: property</legend>
           <label>Property address<input name="address" autocomplete="street-address" placeholder="123 Main St, Bakersfield, CA" required></label>
@@ -1516,7 +1526,7 @@ export function familyPage() {
       <p class="eyebrow gold">For families in ${esc(site.region)}</p>
       <h1 class="h1-sub">${f.headline}</h1>
       <p class="hero-lead">${esc(f.lead)}</p>
-      <div class="hero-actions"><a class="btn btn-gold" href="tel:${site.phoneHref}" data-track="call_click">Call Nathanael at ${esc(site.phone)}</a><a class="btn btn-outline" href="#options">See my options</a></div>
+      <div class="hero-reassure hero-call"><a class="link" href="tel:${site.phoneHref}" data-track="call_click">Call Nathanael at ${esc(site.phone)}</a></div>
     </div>
     ${familyLeadForm()}
   </div>

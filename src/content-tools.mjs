@@ -500,12 +500,14 @@ export const quizNotes = [
  [
   "behind",
   "Behind on payments? A HUD-approved housing counselor is free. Ask your servicer about a repayment plan or loan modification before you decide to sell.",
-  "https://www.consumerfinance.gov/find-a-housing-counselor/"
+  "https://www.consumerfinance.gov/find-a-housing-counselor/",
+  "Find a housing counselor"
  ],
  [
   "inherited",
   "Want to keep an inherited house? Check Prop 19 first. An heir who moves in within a year may keep the parent’s tax base.",
-  "/inherited-house-deadlines"
+  "/inherited-house-deadlines",
+  "See the inherited house deadlines"
  ],
  [
   "reverse",

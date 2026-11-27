@@ -512,9 +512,18 @@ document.querySelectorAll('form[data-hero-address]').forEach((bar) => {
     const street = bar.querySelector('[name=street]');
     const zip = bar.querySelector('[name=zip]');
     const z = zip.value.trim();
-    bar.querySelectorAll('.invalid').forEach((el) => el.classList.remove('invalid'));
+    bar.querySelectorAll('.invalid').forEach((el) => { el.classList.remove('invalid'); el.removeAttribute('aria-invalid'); });
     const bad = [street.value.trim().length < 4 && street, z && !/^\d{5}(-\d{4})?$/.test(z) && zip].filter(Boolean);
-    if (bad.length) { bad.forEach((el) => el.classList.add('invalid')); bad[0].focus(); return; }
+    if (bad.length) {
+      bad.forEach((el) => { el.classList.add('invalid'); el.setAttribute('aria-invalid', 'true'); });
+      let note = bar.nextElementSibling?.classList?.contains('addr-msg') ? bar.nextElementSibling : null;
+      if (!note) { note = document.createElement('p'); note.className = 'addr-msg'; note.setAttribute('role', 'alert'); bar.after(note); }
+      note.textContent = bad[0] === street
+        ? say('Enter the street address of the property.', 'Escriba la dirección de la propiedad.')
+        : say('Enter a 5-digit ZIP code.', 'Escriba un código postal (ZIP) de 5 dígitos.');
+      bad[0].focus();
+      return;
+    }
     let msg = bar.nextElementSibling?.classList?.contains('addr-msg') ? bar.nextElementSibling : null;
     if (z && !inServiceArea(z)) {
       zip.classList.add('invalid');
@@ -612,7 +621,8 @@ document.querySelectorAll('form[data-deadlines]').forEach((form) => {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const raw = form.dod.value;
-    if (!raw) { status.textContent = say('Please enter the date of death.', 'Por favor, escriba la fecha de fallecimiento.'); status.className = 'form-status error'; form.dod.focus(); return; }
+    if (!raw) { form.dod.classList.add('invalid'); status.textContent = say('Please enter the date of death.', 'Por favor, escriba la fecha de fallecimiento.'); status.className = 'form-status error'; form.dod.focus(); return; }
+    form.dod.classList.remove('invalid');
     status.textContent = ''; status.className = 'form-status';
     const dod = new Date(`${raw}T00:00:00Z`);
     const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z');
@@ -651,7 +661,9 @@ document.querySelectorAll('form[data-deadlines]').forEach((form) => {
       out.append(li);
     }
     out.hidden = false;
-    out.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    const heading = document.querySelector('[data-deadline-h]');
+    if (heading) heading.hidden = false;
+    (heading || out).scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     track('cta_click', { cta: 'deadlines_shown' });
   });
 });
@@ -879,6 +891,11 @@ if (typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches) {
     stick.hidden = false;
     new IntersectionObserver(([en]) => stick.classList.toggle('show', !en.isIntersecting), { rootMargin: '-80px 0px 0px 0px' }).observe(hero);
   }
+  // Phones: the call bar drops its "Get my cash offer" button while a hero with its own address bar or form is on screen.
+  const heroTop = document.querySelector('.home-hero, .hero-sub');
+  if (heroTop && 'IntersectionObserver' in window) {
+    new IntersectionObserver(([en]) => document.body.classList.toggle('hero-in', en.isIntersecting), { rootMargin: '-80px 0px 0px 0px' }).observe(heroTop);
+  }
 }
 
 // ================= Seller Tools (all runs in the browser; nothing is saved or sent) =================
@@ -898,28 +915,33 @@ document.querySelectorAll('form[data-tool="net-sheet"]').forEach((form) => {
   let started = false;
   const render = () => {
     form.querySelectorAll('.invalid').forEach((el) => el.classList.remove('invalid'));
-    ['priceA', 'priceB', 'escrowA', 'escrowB', 'repairsA', 'otherA', 'otherB', 'feesB', 'payoffs', 'liens', 'monthly', 'monthsA', 'monthsB']
-      .forEach((n) => { if (Number.isNaN(v(n))) form.querySelector(`[name="${n}"]`)?.classList.add('invalid'); });
+    const bad = new Set(['priceA', 'priceB', 'escrowA', 'escrowB', 'repairsA', 'otherA', 'otherB', 'feesB', 'payoffs', 'liens', 'monthly', 'monthsA', 'monthsB']
+      .filter((n) => Number.isNaN(v(n))));
+    bad.forEach((n) => form.querySelector(`[name="${n}"]`)?.classList.add('invalid'));
     const noLoan = on('noloan');
-    const owed = (noLoan ? 0 : (v('payoffs') || 0)) + (v('liens') || 0);
+    // A line is unknown (null) when what was typed isn't a number, or when a line the sheet needs is still blank.
+    // Optional lines (liens, fees, repairs, other costs) left blank count as none. An unknown line leaves the net unknown.
+    const opt = (n) => (bad.has(n) ? null : (v(n) || 0));
+    const req = (n) => (bad.has(n) || v(n) == null ? null : v(n));
     const col = (k) => {
       const price = v(`price${k}`);
       if (price == null || Number.isNaN(price)) return null;
-      const comm = k === 'A' && pick('commA') ? Math.round(price * Number(pick('commA')) / 100) : 0;
       const monthsVal = v(`months${k}`);
+      const monthly = opt('monthly');
       const lines = {
         price,
-        payoffs: noLoan ? 0 : (v('payoffs') || 0),
-        liens: v('liens') || 0,
-        commission: comm,
-        buyerFees: k === 'B' ? (v('feesB') || 0) : 0,
+        payoffs: noLoan ? 0 : req('payoffs'),
+        liens: opt('liens'),
+        commission: k === 'A' ? (pick('commA') ? Math.round(price * Number(pick('commA')) / 100) : null) : 0,
+        buyerFees: k === 'B' ? opt('feesB') : 0,
         transferTax: share(dtt(price), pick(`payer${k}`) || 'seller'),
-        escrow: k === 'B' && on('buyerPaysB') ? 0 : (v(`escrow${k}`) || 0),
-        repairs: k === 'A' ? (v('repairsA') || 0) : 0,
-        other: v(`other${k}`) || 0,
-        waiting: (v('monthly') || 0) * (monthsVal || 0),
+        escrow: k === 'B' && on('buyerPaysB') ? 0 : req(`escrow${k}`),
+        repairs: k === 'A' ? opt('repairsA') : 0,
+        other: opt(`other${k}`),
+        waiting: monthly == null || bad.has(`months${k}`) ? null : monthly ? (monthsVal == null ? null : monthly * monthsVal) : 0,
       };
-      const net = lines.price - Object.entries(lines).filter(([key]) => key !== 'price').reduce((sum, [, x]) => sum + x, 0);
+      const known = Object.values(lines).every((x) => x != null);
+      const net = known ? lines.price - Object.entries(lines).filter(([key]) => key !== 'price').reduce((sum, [, x]) => sum + x, 0) : null;
       return { lines, net, months: monthsVal };
     };
     const A = col('A'); const B = col('B');
@@ -928,15 +950,16 @@ document.querySelectorAll('form[data-tool="net-sheet"]').forEach((form) => {
         const key = td.getAttribute(`data-${k}`);
         if (!c) { td.textContent = '—'; return; }
         const val = key === 'net' ? c.net : c.lines[key];
-        td.textContent = key === 'price' || key === 'net' ? fmtUSD(val) : (val ? fmtUSD(-val) : '$0');
+        td.textContent = val == null ? '—' : key === 'price' || key === 'net' ? fmtUSD(val) : (val ? fmtUSD(-val) : '$0');
         if (k === 'b' && ['commission', 'repairs'].includes(key)) td.textContent = '—';
         if (k === 'a' && key === 'buyerFees') td.textContent = '—';
       });
     }
     const verdict = out.querySelector('.verdict');
     let text = '';
-    const short = [A, B].find((c) => c && c.net < 0);
+    const short = [A, B].find((c) => c && c.net != null && c.net < 0);
     if (short) text = say(`On these numbers, the sale wouldn’t cover what’s owed: about ${fmtUSD(-short.net)} short. Before you sign anything, talk to your lender and a free HUD-approved housing counselor.`, `Con estos números, la venta no alcanzaría para cubrir lo que se debe; faltarían unos ${fmtUSD(-short.net)}. Antes de firmar nada, hable con su prestamista y con un consejero de vivienda aprobado por HUD (es gratis).`);
+    else if (A && B && (A.net == null || B.net == null)) text = bad.size ? say('Correct the boxes marked in red to compare the two.', 'Corrija las casillas marcadas en rojo para comparar las dos.') : say('Fill in the missing lines to compare the two.', 'Complete las líneas que faltan para comparar las dos.');
     else if (A && B) {
       const diff = A.net - B.net;
       if (Math.abs(diff) < 1000) text = say('On your numbers, the two come out about the same. Then it comes down to time, hassle and certainty.', 'Con sus números, las dos opciones quedan más o menos igual. Entonces todo depende del tiempo, la molestia y la seguridad.');
@@ -957,9 +980,13 @@ document.querySelectorAll('form[data-tool="net-sheet"]').forEach((form) => {
     if (A && v('escrowA') == null) miss.push(say('Escrow and title (List it)', 'Escrow y título (en venta)'));
     if (B && v('escrowB') == null && !on('buyerPaysB')) miss.push(say('Escrow and title (Cash offer)', 'Escrow y título (oferta en efectivo)'));
     if (v('monthly') && ((A && v('monthsA') == null) || (B && v('monthsB') == null))) miss.push(say('Months until closing', 'Meses hasta el cierre'));
+    // Shown above the table: what can't be read, then what the sheet still needs
+    const notes = [];
+    if (bad.size) notes.push(['ns-bad', say('Use numbers only in the boxes marked in red, like 6500.', 'Use solo números en las casillas marcadas en rojo, por ejemplo 6500.')]);
+    if (miss.length) notes.push(['ns-missing-h', say('Still missing', 'Falta completar')], ...miss.map((m) => ['', m]));
     const ul = out.querySelector('.ns-missing');
-    ul.hidden = !miss.length;
-    ul.replaceChildren(...miss.map((m) => { const li = document.createElement('li'); li.textContent = say('Still missing: ', 'Falta: ') + m; return li; }));
+    ul.hidden = !notes.length;
+    ul.replaceChildren(...notes.map(([cls, t]) => { const li = document.createElement('li'); if (cls) li.className = cls; li.textContent = t; return li; }));
     if (A && B && !started) { started = true; track('cta_click', { cta: 'net_sheet_result' }); }
   };
   form.addEventListener('input', () => requestAnimationFrame(render));
@@ -995,14 +1022,23 @@ document.querySelectorAll('form[data-tool="which-path"]').forEach((form) => {
       if (e.target.value === 'none' && e.target.checked) form.querySelectorAll('[name=q4]').forEach((c) => { if (c !== none) c.checked = false; });
       else if (e.target.checked && none) none.checked = false;
     }
+    // An answered question loses its red mark; the message goes once none is left
+    e.target.closest('.choice-grid')?.classList.remove('invalid');
+    const status = form.querySelector('.form-status');
+    if (status.classList.contains('error') && !form.querySelector('.choice-grid.invalid')) { status.textContent = ''; status.className = 'form-status'; }
     if (!out.hidden) show(false);
   });
   const show = (scroll = true) => {
     const a = answers();
     const status = form.querySelector('.form-status');
-    if (!a.q1 || !a.q2 || !a.q3 || !a.q5) {
-      status.textContent = say('Please answer questions 1, 2, 3 and 5.', 'Por favor, conteste las preguntas 1, 2, 3 y 5.');
+    // The questions carry no numbers, so mark the unanswered ones instead of naming them
+    const open = ['q1', 'q2', 'q3', 'q5'].filter((q) => !a[q]);
+    form.querySelectorAll('.choice-grid.invalid').forEach((g) => g.classList.remove('invalid'));
+    if (open.length) {
+      open.forEach((q) => form.querySelector(`[name="${q}"]`)?.closest('.choice-grid')?.classList.add('invalid'));
+      status.textContent = say('Please answer the questions marked in red.', 'Por favor, conteste las preguntas marcadas en rojo.');
       status.className = 'form-status error';
+      if (scroll) form.querySelector(`[name="${open[0]}"]`)?.focus();
       return;
     }
     status.textContent = ''; status.className = 'form-status';
