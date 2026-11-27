@@ -4,7 +4,6 @@
 import site from '../site.config.mjs';
 import { images } from './content.mjs';
 
-export const supportingPromise = 'Clear options for complicated properties and complicated situations.';
 
 export const heroCopy = {
   eyebrow: 'Bakersfield • Tehachapi • Kern County',
@@ -25,10 +24,10 @@ export const reassurance = [
 ];
 
 export const processSteps = [
-  ['Tell us the address.', `Use the form or call or text ${site.phone}. The form asks for the property address, your name, phone number, and permission to respond.`],
-  ['We review the property and situation.', 'Condition, timeline, occupancy, and what you want out of the sale. In person or by video.'],
-  ['You compare your options.', 'A direct offer if it fits, and a listing, repair, or development path when those are realistic. In writing, with the assumptions.'],
-  ['You decide what comes next.', 'Take the time you need. Talk it over with family or an advisor. There is no obligation.'],
+  ['Tell us the address', `Use the form or call or text ${site.phone}. The form asks for the property address, your name, phone number, and permission to respond.`],
+  ['We review the property and situation', 'Condition, timeline, occupancy, and what you want out of the sale. In person or by video.'],
+  ['You compare your options', 'A direct offer if it fits, and a listing, repair, or development path when those are realistic. In writing, with the assumptions.'],
+  ['You decide what comes next', 'Take the time you need. Talk it over with family or an advisor. There is no obligation.'],
 ];
 
 // The five paths. `route` is stored on the lead as route_interest.
@@ -140,7 +139,7 @@ export const newSituations = [
     name: 'Sell a Rental Property',
     title: 'Sell a Rental Property in Kern County',
     description: 'Selling a rental in Bakersfield or Kern County? Compare a direct as-is sale with listing to investors. Occupied or vacant, with leases handled through escrow.',
-    headline: 'Ready to stop being a landlord? <em>Compare your options.</em>',
+    headline: 'Ready to stop being a landlord? <em>Compare your options</em>',
     lead: 'Whether the property is performing, half-vacant, or needs work, selling a rental involves leases, tenants, deposits, and taxes that a typical home sale doesn’t.',
     image: images.suburban,
     body: [
@@ -166,7 +165,7 @@ export const newSituations = [
     name: 'Listing Didn’t Sell',
     title: 'House Didn’t Sell? Options After an Expired Listing',
     description: 'Listing expired or withdrawn in Bakersfield or Kern County? Find out why it didn’t sell and compare a relaunch with a direct as-is sale.',
-    headline: 'Listing didn’t sell? <em>Let’s find out why.</em>',
+    headline: 'Listing didn’t sell? <em>Let’s find out why</em>',
     lead: 'An expired or withdrawn listing is frustrating, and it usually has a specific cause: price, condition, photos, access for showings, or buyer financing.',
     image: images.list,
     body: [
@@ -191,7 +190,7 @@ export const newSituations = [
     name: 'Land & Development',
     title: 'Sell Land or a Development Property in Kern County',
     description: 'Selling vacant land, acreage, or a large lot in Kern County? Harbison reviews zoning, access, utilities, and development potential before you decide.',
-    headline: 'Land or a big lot? <em>Find out what it is worth.</em>',
+    headline: 'Land or a big lot? <em>Find out what it is worth</em>',
     lead: 'Sometimes a property’s value is less about the house and more about the land underneath it: its zoning, size, access, and utilities.',
     image: images.land,
     body: [
@@ -219,7 +218,7 @@ export const stallionSprings = {
   name: 'Stallion Springs',
   title: 'Sell Your House or Land for Cash in Stallion Springs, CA',
   description: 'Selling a home or lot in Stallion Springs? Call Harbison reviews mountain properties as-is and compares a direct sale with listing.',
-  headline: 'Sell your Stallion Springs home or land <em>for cash.</em>',
+  headline: 'Sell your Stallion Springs home or land <em>for cash</em>',
   lead: 'Stallion Springs sits in the Tehachapi Mountains west of Tehachapi, with custom homes, larger lots, and vacant parcels that each call for a different approach.',
   image: images.valley,
   body: [

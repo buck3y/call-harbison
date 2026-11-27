@@ -52,6 +52,10 @@ export default {
   // Add the Google Business Profile URL here once it exists (strong local + AI search signal).
   businessProfiles: [],
 
+  // Reply hours shown next to every form ("It's 4:12 pm in Bakersfield…"). Bakersfield time, 24h clock.
+  // PLACEHOLDER: confirm Nathanael's real hours before launch. days: 0 = Sunday … 6 = Saturday.
+  replyHours: { days: [1, 2, 3, 4, 5, 6], open: 8, close: 19 },
+
   city: 'Bakersfield',
   state: 'CA',
   region: 'Kern County',

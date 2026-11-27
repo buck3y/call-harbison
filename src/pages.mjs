@@ -3,10 +3,12 @@ import { areas, guides, situations } from './templates.mjs';
 import {
   homePage, howItWorksPage, contactPage, accessibilityPage, situationPage, areaPage, situationsIndexPage, aboutPage, guidesIndexPage, guidePage,
   thankYouPage, notFoundPage, privacyPage, termsPage, familyPage, partnerGuidePage,
+  secondOpinionPage, whenNotToSellPage, deadlinesPage, sellerToolsPage, netSheetPage, whichPathPage, paperworkPage, handoffToolPage,
 } from './templates.mjs';
 import { family } from './family.mjs';
 import { inquiryPages } from './content-search.mjs';
 import { inquiryPage } from './templates.mjs';
+import { handoffTools } from './content-handoff.mjs';
 
 /** @returns {Array<[file: string, html: string, path: string|null, lastmod?: string]>} */
 export function buildPages() {
@@ -23,6 +25,14 @@ export function buildPages() {
     ...areas.map((a) => [`areas/${a.slug}.html`, areaPage(a), `/areas/${a.slug}`, a.updated]),
     ['guides/index.html', guidesIndexPage(), '/guides'],
     ...guides.map((g) => [`guides/${g.slug}.html`, guidePage(g), `/guides/${g.slug}`, g.updated]),
+    ['seller-tools.html', sellerToolsPage(), '/seller-tools'],
+    ...handoffTools.map((tool) => [`${tool.slug}.html`, handoffToolPage(tool), `/${tool.slug}`]),
+    ['seller-net-sheet.html', netSheetPage(), '/seller-net-sheet'],
+    ['which-path-fits.html', whichPathPage(), '/which-path-fits'],
+    ['paperwork-checklist.html', paperworkPage(), '/paperwork-checklist'],
+    ['second-opinion.html', secondOpinionPage(), '/second-opinion'],
+    ['when-not-to-sell.html', whenNotToSellPage(), '/when-not-to-sell'],
+    ['inherited-house-deadlines.html', deadlinesPage(), '/inherited-house-deadlines'],
     ['privacy.html', privacyPage(), '/privacy'],
     ['terms.html', termsPage(), '/terms'],
     ['accessibility.html', accessibilityPage(), '/accessibility'],

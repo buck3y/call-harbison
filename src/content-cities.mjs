@@ -13,7 +13,7 @@ export const cityAreas = [
     name: 'Oildale',
     title: 'We Buy Houses for Cash in Oildale, CA',
     description: 'Selling a house in Oildale? Call Harbison pays cash as-is and compares a written offer with listing. Local licensed agent, no obligation.',
-    headline: 'Sell your Oildale house <em>for cash, as-is.</em>',
+    headline: 'Sell your Oildale house <em>for cash, as-is</em>',
     lead: 'Oildale sits just north of Bakersfield across the Kern River, with a mix of older homes, rentals and larger lots.',
     image: images.suburban,
     body: [
@@ -33,7 +33,7 @@ export const cityAreas = [
     name: 'Rosedale',
     title: 'We Buy Houses for Cash in Rosedale, CA',
     description: 'Selling a house in Rosedale or northwest Bakersfield? Call Harbison pays cash as-is and compares a written offer with listing.',
-    headline: 'Sell your Rosedale house <em>for cash, as-is.</em>',
+    headline: 'Sell your Rosedale house <em>for cash, as-is</em>',
     lead: 'Rosedale and the northwest side of Bakersfield have many newer subdivisions, where condition, HOA rules and market demand shape the best way to sell.',
     image: images.home,
     body: [
@@ -53,7 +53,7 @@ export const cityAreas = [
     name: 'Lamont',
     title: 'We Buy Houses for Cash in Lamont, CA',
     description: 'Selling a house in Lamont? Call Harbison pays cash as-is and compares a written offer with listing. Local licensed agent, no obligation.',
-    headline: 'Sell your Lamont house <em>for cash, as-is.</em>',
+    headline: 'Sell your Lamont house <em>for cash, as-is</em>',
     lead: 'Lamont is an unincorporated agricultural community southeast of Bakersfield, with older homes, rentals and family-owned properties.',
     image: images.classic,
     body: [
@@ -73,7 +73,7 @@ export const cityAreas = [
     name: 'Delano',
     title: 'We Buy Houses for Cash in Delano, CA',
     description: 'Selling a house in Delano? Call Harbison pays cash as-is and compares a written offer with listing. Local licensed agent, no obligation.',
-    headline: 'Sell your Delano house <em>for cash, as-is.</em>',
+    headline: 'Sell your Delano house <em>for cash, as-is</em>',
     lead: 'Delano is a city in northern Kern County along Highway 99, surrounded by farmland, with a mix of older and newer homes.',
     image: images.valley,
     body: [
@@ -93,7 +93,7 @@ export const cityAreas = [
     name: 'Shafter',
     title: 'We Buy Houses for Cash in Shafter, CA',
     description: 'Selling a house in Shafter? Call Harbison pays cash as-is and compares a written offer with listing. Local licensed agent, no obligation.',
-    headline: 'Sell your Shafter house <em>for cash, as-is.</em>',
+    headline: 'Sell your Shafter house <em>for cash, as-is</em>',
     lead: 'Shafter is an agricultural city northwest of Bakersfield, with established neighborhoods, newer tracts and homes on larger lots.',
     image: images.suburban,
     body: [
@@ -113,7 +113,7 @@ export const cityAreas = [
     name: 'Wasco',
     title: 'We Buy Houses for Cash in Wasco, CA',
     description: 'Selling a house in Wasco? Call Harbison pays cash as-is and compares a written offer with listing. Local licensed agent, no obligation.',
-    headline: 'Sell your Wasco house <em>for cash, as-is.</em>',
+    headline: 'Sell your Wasco house <em>for cash, as-is</em>',
     lead: 'Wasco is a farming city in northwest Kern County, known for its rose growers, with older neighborhoods and newer homes.',
     image: images.classic,
     body: [
@@ -133,7 +133,7 @@ export const cityAreas = [
     name: 'Taft',
     title: 'We Buy Houses for Cash in Taft, CA',
     description: 'Selling a house in Taft or west Kern County? Call Harbison pays cash as-is and compares a written offer with listing.',
-    headline: 'Sell your Taft house <em>for cash, as-is.</em>',
+    headline: 'Sell your Taft house <em>for cash, as-is</em>',
     lead: 'Taft is an oil-country city in west Kern County, with many older homes and a smaller local buyer pool than Bakersfield.',
     image: images.street,
     body: [
@@ -153,7 +153,7 @@ export const cityAreas = [
     name: 'Arvin',
     title: 'We Buy Houses for Cash in Arvin, CA',
     description: 'Selling a house in Arvin? Call Harbison pays cash as-is and compares a written offer with listing. Local licensed agent, no obligation.',
-    headline: 'Sell your Arvin house <em>for cash, as-is.</em>',
+    headline: 'Sell your Arvin house <em>for cash, as-is</em>',
     lead: 'Arvin is an agricultural city southeast of Bakersfield near the base of the Tehachapi Mountains, with established neighborhoods and rentals.',
     image: images.suburban,
     body: [
@@ -173,7 +173,7 @@ export const cityAreas = [
     name: 'Ridgecrest',
     title: 'We Buy Houses for Cash in Ridgecrest, CA',
     description: 'Selling a house in Ridgecrest or the Indian Wells Valley? Call Harbison pays cash as-is and compares a written offer with listing.',
-    headline: 'Sell your Ridgecrest house <em>for cash, as-is.</em>',
+    headline: 'Sell your Ridgecrest house <em>for cash, as-is</em>',
     lead: 'Ridgecrest is a desert city in the Indian Wells Valley in northeast Kern County, close to the Naval Air Weapons Station China Lake.',
     image: images.land,
     body: [

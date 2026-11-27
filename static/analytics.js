@@ -1,5 +1,5 @@
 // Recorded page views only: no customer/form fields, cookies, or cross-site IDs.
-(() => {
+const hbhStartAnalytics = () => {
   if (!['www.callharbison.com', 'callharbison.com'].includes(location.hostname) || /^\/(hq|api)(\/|$)/.test(location.pathname)) return;
   let optedOut = false;
   const allowed = () => {
@@ -80,4 +80,7 @@
   });
   window.addEventListener('pagehide', flush);
   timer = setInterval(() => { if (!document.hidden) flush(); }, 15000);
-})();
+};
+// A page the browser pre-renders in the background is only counted once the visitor actually opens it.
+if (document.prerendering) document.addEventListener('prerenderingchange', hbhStartAnalytics, { once: true });
+else hbhStartAnalytics();

@@ -22,17 +22,21 @@ test('public copy does not guarantee no showings or a seller-chosen closing date
 });
 
 test('comparisons distinguish initial review from contractual access and encourage independent review in both languages', () => {
-  for (const file of ['index.html', 'how-it-works.html']) {
+  // The home page states the initial-review promise; the full direct-vs-listing comparison and its
+  // independent-review disclosure live on How It Works (moved off the home page, 2026-11-13).
+  assert.match(page('index.html'), /No cleaning or repairs are needed for the initial review/);
+  assert.match(es('index.html'), /No hace falta limpiar ni reparar para la evaluación inicial/);
+  for (const file of pages.map(([f]) => f).filter((f) => /Initial walkthrough; further access by agreement/.test(page(f)))) {
     const en = page(file);
-    assert.match(en, file === 'index.html' ? /No cleaning or repairs are needed for the initial review/ : /You do not need to clean, repair, or empty anything first/);
-    assert.match(en, /Initial walkthrough; further access by agreement/);
-    assert.match(en, /Agreed date, subject to contract, title and escrow/);
-    assert.match(en, /Ask an independent broker or attorney to review the proposed terms before signing/);
+    assert.match(en, /Agreed date, subject to contract, title and escrow/, file);
+    assert.match(en, /Ask an independent broker or attorney to review the proposed terms before signing/, file);
     const spanish = es(file);
-    if (file === 'index.html') assert.match(spanish, /No hace falta limpiar ni reparar para la evaluación inicial/);
-    assert.match(spanish, /Visita inicial; acceso posterior según lo acordado/);
-    assert.match(spanish, /Pida a un corredor independiente o a un abogado que revise las condiciones propuestas antes de firmar/);
+    assert.match(spanish, /Visita inicial; acceso posterior según lo acordado/, file);
+    assert.match(spanish, /Pida a un corredor independiente o a un abogado que revise las condiciones propuestas antes de firmar/, file);
   }
+  const how = page('how-it-works.html');
+  assert.match(how, /You do not need to clean, repair, or empty anything first/);
+  assert.match(how, /Initial walkthrough; further access by agreement/);
 });
 
 test('cash-offer comparison timing is illustrative, not a promised or measured result', () => {

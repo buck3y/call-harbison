@@ -8,7 +8,7 @@ export const moreSituations = [
     name: 'Behind on the Mortgage',
     title: 'Behind on Your Mortgage? Compare Your Options',
     description: 'Behind on a Bakersfield or Kern County mortgage? Learn about counseling and alternatives, and compare a cash as-is offer with listing before you decide.',
-    headline: 'Behind on the mortgage? <em>Compare every option first.</em>',
+    headline: 'Behind on the mortgage? <em>Compare every option first</em>',
     lead: 'Missed payments are stressful, and a sale is only one of the possible next steps. Start by understanding what your servicer and a counselor can offer.',
     image: images.home,
     body: [
@@ -33,7 +33,7 @@ export const moreSituations = [
     name: 'Code Violations & Unpermitted Work',
     title: 'Sell a House With Code Violations or Unpermitted Work',
     description: 'Open permits, a code notice or unpermitted additions in Bakersfield or Kern County? Compare a cash as-is offer with fixing and listing.',
-    headline: 'Code notice or unpermitted work? <em>Compare your options.</em>',
+    headline: 'Code notice or unpermitted work? <em>Compare your options</em>',
     lead: 'A code violation, an open permit or an addition built without permits can scare off financed buyers and complicate a listing.',
     image: images.renovate,
     body: [
@@ -58,7 +58,7 @@ export const moreSituations = [
     name: 'Full of Belongings or Hoarding',
     title: 'Sell a House Full of Belongings or Hoarding',
     description: 'House full of belongings or a hoarding situation in Bakersfield or Kern County? Compare a cash as-is offer with cleanout and listing, with respect and privacy.',
-    headline: 'House full of belongings? <em>You do not have to clear it first.</em>',
+    headline: 'House full of belongings? <em>You do not have to clear it first</em>',
     lead: 'Decades of belongings, a hoarding situation or an estate full of contents can make cleanout feel impossible, and it makes showings hard.',
     image: images.classic,
     body: [
@@ -83,7 +83,7 @@ export const moreSituations = [
     name: 'Liens & Back Taxes',
     title: 'Sell a House With Liens or Back Property Taxes',
     description: 'Liens, back property taxes or unpaid assessments on a Bakersfield or Kern County house? Compare a cash as-is offer with listing and see your net.',
-    headline: 'Liens or back taxes? <em>See what you would net.</em>',
+    headline: 'Liens or back taxes? <em>See what you would net</em>',
     lead: 'Unpaid property taxes, a mechanic’s lien or a judgment lien can feel like a reason you cannot sell, but many are paid from the sale at closing.',
     image: images.street,
     body: [

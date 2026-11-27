@@ -8,7 +8,7 @@ export const californiaCity = {
   name: 'California City',
   title: 'Sell Your House or Land for Cash in California City, CA',
   description: 'Selling a house or vacant lot in California City? Call Harbison pays cash as-is and gives a clear read on land value, access, and utilities.',
-  headline: 'Sell your California City home or land <em>for cash.</em>',
+  headline: 'Sell your California City home or land <em>for cash</em>',
   lead: 'California City covers a huge area in eastern Kern County, with established neighborhoods alongside thousands of vacant desert parcels, and value can vary widely from one lot to the next.',
   image: images.land,
   body: [
@@ -58,10 +58,10 @@ export const about = {
     'His experience includes residential sales across price ranges, investment-property analysis, and special situations such as probate and inherited homes, divorce settlements, short sales, and time-sensitive moves. He listens first, gives plain market feedback, and never pushes a transaction.',
   ],
   principles: [
-    ['Options, not pressure', 'We show every realistic path: direct sale, listing, renovation, or development. You choose.'],
-    ['Construction perspective', 'We evaluate condition and repair scope the way a builder does, so offers reflect the real work involved.'],
-    ['Local knowledge', 'Active in Kern County real estate, with working knowledge of neighborhoods, pricing, and buyer pools.'],
-    ['Transparency', 'You see how a number was reached. When we buy directly, Nathanael’s license status is disclosed in writing.'],
+    ['Every realistic option', 'We show every realistic path: direct sale, listing, renovation, or development. You choose.'],
+    ['A builder’s eye on repairs', 'We evaluate condition and repair scope the way a builder does, so offers reflect the real work involved.'],
+    ['Kern County neighborhoods', 'Active in Kern County real estate, with working knowledge of neighborhoods, pricing, and buyer pools.'],
+    ['Numbers you can check', 'You see how a number was reached. When we buy directly, Nathanael’s license status is disclosed in writing.'],
   ],
 };
 

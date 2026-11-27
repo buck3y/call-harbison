@@ -190,7 +190,7 @@ const META_TEXT = /(?:name|property)="(?:description|og:title|og:description|og:
 // ---------------------------------------------------------------- links and structured data
 
 const NOT_ROUTES = /^\/(?:assets|fonts|api|hq|_vercel|favicon|site\.webmanifest|sitemap|robots|llms|styles|script|analytics)/;
-const FILE_EXT = /\.(?:png|jpe?g|gif|webp|svg|ico|xml|txt|webmanifest|css|js|woff2?|pdf|json|mp4)(?:$|[?#])/i;
+const FILE_EXT = /\.(?:png|jpe?g|gif|webp|svg|ico|xml|txt|webmanifest|css|js|woff2?|pdf|json|mp4|vcf)(?:$|[?#])/i;
 
 export function isRoute(path) {
   return path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/es') && !NOT_ROUTES.test(path) && !FILE_EXT.test(path);
@@ -382,7 +382,8 @@ export function decoratePage(html, { lang, filePath, siteUrl }) {
 
   if (lang === 'en') {
     // A visitor who chose Spanish earlier lands on the Spanish page. Crawlers keep no storage, so they always see English.
-    const redirect = `<script>try{if(localStorage.getItem('${LANG_KEY}')==='es'){var p=location.pathname.replace(/\\/$/,'');location.replace('/es'+(p==='/'||p===''?'':p)+location.search+location.hash)}}catch(e){}</script>`;
+    // First visit with a Spanish-first browser (and no saved choice) also goes to Spanish.
+    const redirect = `<script>try{var s=localStorage.getItem('${LANG_KEY}'),b=(navigator.languages&&navigator.languages[0])||navigator.language||'';if(localStorage.getItem('${LANG_KEY}')==='es'||(!s&&/^es\\b/i.test(b))){var p=location.pathname.replace(/\\/$/,'');location.replace('/es'+(p==='/'||p===''?'':p)+location.search+location.hash)}}catch(e){}</script>`;
     out = out.replace('</head>', `  ${redirect}\n</head>`);
   }
   return out;

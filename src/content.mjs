@@ -22,7 +22,7 @@ export const situations = [
     name: 'Inherited Property',
     title: 'Sell an Inherited House for Cash in Kern County',
     description: 'Inherited a house in Kern County? Get an as-is cash offer or compare listing with a local licensed agent who works with heirs, trustees, and probate attorneys.',
-    headline: 'Inherited a house? <em>Sell it as-is for cash.</em>',
+    headline: 'Inherited a house? <em>Sell it as-is for cash</em>',
     lead: 'Inheriting a property often means belongings to clear, repairs nobody budgeted for, and family members who may not agree on what to do next.',
     image: images.classic,
     body: [
@@ -48,7 +48,7 @@ export const situations = [
     name: 'Needs Major Repairs',
     title: 'Sell a House That Needs Repairs for Cash, As-Is',
     description: 'Roof, foundation, plumbing, or years of deferred maintenance? Compare an as-is offer from Harbison with listing or making repairs.',
-    headline: 'Big repairs? <em>Sell it as-is for cash.</em>',
+    headline: 'Big repairs? <em>Sell it as-is for cash</em>',
     lead: 'Foundation cracks, a failing roof, old plumbing, outdated electrical. Major repairs can make a traditional sale feel out of reach.',
     image: images.renovate,
     body: [
@@ -74,7 +74,7 @@ export const situations = [
     name: 'Vacant Property',
     title: 'Sell a Vacant House for Cash in Kern County',
     description: 'A vacant house costs you in taxes, insurance, utilities, and risk. Harbison buys vacant houses and lots for cash across Kern County, as-is.',
-    headline: 'Empty house? <em>Stop paying to hold it.</em>',
+    headline: 'Empty house? <em>Stop paying to hold it</em>',
     lead: 'A vacant property costs you taxes, insurance, utilities, and maintenance every month, and empty homes can attract break-ins, squatters, and vandalism.',
     image: images.street,
     body: [
@@ -99,7 +99,7 @@ export const situations = [
     name: 'Problem Tenants',
     title: 'Sell a Rental With Problem Tenants for Cash',
     description: 'Tired of being a landlord? Harbison buys Kern County rental properties for cash with tenants in place, including difficult situations.',
-    headline: 'Tired of being a landlord? <em>Sell with tenants in place.</em>',
+    headline: 'Tired of being a landlord? <em>Sell with tenants in place</em>',
     lead: 'Late rent, property damage, and constant calls can turn a rental from an investment into a burden.',
     image: images.suburban,
     body: [
@@ -124,7 +124,7 @@ export const situations = [
     name: 'Relocation',
     title: 'Relocating? Sell Your Kern County House for Cash',
     description: 'Moving for work, family, or a fresh start? Compare a direct as-is sale with listing your Kern County house and discuss timing before signing.',
-    headline: 'Moving on? <em>Discuss your closing timeline.</em>',
+    headline: 'Moving on? <em>Discuss your closing timeline</em>',
     lead: 'A new job or family move rarely waits for the perfect listing season. Carrying two housing payments or managing a sale from far away adds real stress.',
     image: images.home,
     body: [
@@ -149,7 +149,7 @@ export const situations = [
     name: 'Life Change',
     title: 'Selling a House During Divorce or a Life Change',
     description: 'Divorce, downsizing, health changes, or retirement. Harbison offers a calm, simple way to sell a Kern County property when life shifts.',
-    headline: 'Life changed? <em>Sell on your schedule.</em>',
+    headline: 'Life changed? <em>Sell on your schedule</em>',
     lead: 'Divorce, downsizing, a health change, retirement, or a growing family. Big life changes often mean the house needs to change too.',
     image: images.valley,
     body: [
@@ -174,7 +174,7 @@ export const situations = [
     name: 'Fire / Water Damage',
     title: 'Sell a Fire- or Water-Damaged House for Cash',
     description: 'Fire, smoke, flood, or water damage? Harbison buys damaged houses across Kern County as-is. No restoration required.',
-    headline: 'Fire or water damage? <em>You still have options.</em>',
+    headline: 'Fire or water damage? <em>You still have options</em>',
     lead: 'After a fire, leak, or flood, owners face restoration bids, insurance claims, and a house that may not be livable.',
     image: images.renovate,
     body: [
@@ -199,7 +199,7 @@ export const situations = [
     name: 'Unfinished Remodel',
     title: 'Sell a House With an Unfinished Remodel',
     description: 'Stalled renovation, open permits, or a contractor who walked away? Harbison buys Kern County homes with unfinished remodels.',
-    headline: 'Remodel stalled? <em>Sell it as-is for cash.</em>',
+    headline: 'Remodel stalled? <em>Sell it as-is for cash</em>',
     lead: 'A project that ran over budget, a contractor who disappeared, or permits that never closed out. Unfinished remodels are hard to sell and expensive to finish.',
     image: images.renovate,
     body: [
@@ -228,7 +228,7 @@ export const areas = [
     name: 'Bakersfield',
     title: 'We Buy Houses for Cash in Bakersfield, CA',
     description: 'Sell your Bakersfield house for cash, as-is. Compare a written cash offer with listing, renovation, or development, with the terms explained in writing.',
-    headline: 'Sell your Bakersfield house <em>for cash, as-is.</em>',
+    headline: 'Sell your Bakersfield house <em>for cash, as-is</em>',
     lead: 'From East Bakersfield and Oildale to Rosedale and the Southwest, we look at Bakersfield properties in every condition and price range.',
     image: images.street,
     body: [
@@ -249,7 +249,7 @@ export const areas = [
     name: 'Tehachapi',
     title: 'We Buy Houses for Cash in Tehachapi, CA',
     description: 'Selling a house or land in Tehachapi, Golden Hills, Bear Valley Springs, or Stallion Springs? Harbison pays cash as-is and reviews every option.',
-    headline: 'Sell your Tehachapi home or land <em>for cash.</em>',
+    headline: 'Sell your Tehachapi home or land <em>for cash</em>',
     lead: 'Mountain homes, cabins, acreage, and in-town properties in the Tehachapi area each sell differently, and the right way to sell depends on the property.',
     image: images.valley,
     body: [
@@ -270,7 +270,7 @@ export const areas = [
     name: 'Kern County',
     title: 'We Buy Houses for Cash Throughout Kern County, CA',
     description: 'Call Harbison buys houses and land for cash throughout Kern County: Bakersfield, Tehachapi, Delano, Shafter, Wasco, Taft, Arvin, Ridgecrest, and more.',
-    headline: 'Cash home buyer <em>across Kern County.</em>',
+    headline: 'Cash home buyer <em>across Kern County</em>',
     lead: 'We review houses, rentals, and land across Kern County. From the valley floor to the mountains and the desert.',
     image: images.land,
     body: [
