@@ -1,0 +1,20 @@
+# Caddy in front of the Node app: HTTPS certificates, compression, and the apex-to-www redirect.
+# Install as /etc/caddy/Caddyfile, then: sudo systemctl reload caddy
+# Change the two host names if the site moves to another domain (and set SITE_URL to match).
+
+callharbison.com {
+	redir https://www.callharbison.com{uri} permanent
+}
+
+www.callharbison.com {
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:3000 {
+		# Keep trying for a few seconds while the app restarts during a deploy.
+		lb_try_duration 5s
+
+		# The app decides who a visitor is from these headers, so a visitor must not be able to set them.
+		header_up X-Real-IP {remote_host}
+		header_up -X-Vercel-Forwarded-For
+	}
+}

@@ -65,4 +65,6 @@ export default {
   gaId: resolveGaId(process.env.GA_MEASUREMENT_ID),
   // Optional Google Tag Manager container (GTM-XXXXXXX). Preferred for Ads conversions + call tracking. Set GTM_ID on Vercel.
   gtmId: resolveGtmId(process.env.GTM_ID),
+  // Vercel Web Analytics and Speed Insights are served by Vercel itself. A build for any other host sets VERCEL_INSIGHTS=off.
+  vercelInsights: process.env.VERCEL_INSIGHTS !== 'off',
 };

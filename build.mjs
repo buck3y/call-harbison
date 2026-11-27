@@ -1,5 +1,5 @@
 // Builds the static site into ./dist. Run: npm run build
-import { rmSync, mkdirSync, writeFileSync, cpSync, readFileSync, renameSync } from 'node:fs';
+import { rmSync, mkdirSync, writeFileSync, cpSync, readFileSync, renameSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import site from './site.config.mjs';
@@ -11,7 +11,9 @@ import { COMMAND_PHASE, assertCommandBuild } from './lib/command-phase.js';
 
 assertCommandBuild(process.env);
 
-const out = 'dist';
+// Build into a fresh folder and swap it in at the end, so a server reading ./dist never sees a half-built site.
+const target = 'dist';
+const out = `${target}.next`;
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync('static', out, { recursive: true });
@@ -169,4 +171,10 @@ writeFileSync(
   }, null, 2)
 );
 
-console.log(`Built ${pages.length} pages into ./${out}`);
+const previous = `${target}.old`;
+rmSync(previous, { recursive: true, force: true });
+if (existsSync(target)) renameSync(target, previous);
+renameSync(out, target);
+rmSync(previous, { recursive: true, force: true });
+
+console.log(`Built ${pages.length} pages into ./${target}`);

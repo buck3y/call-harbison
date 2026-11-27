@@ -11,6 +11,7 @@ npm ci                     # Node 22 (CI uses 22). PGlite is a dev dependency us
 npm run dev                # build once, then serve http://localhost:3000 with the APIs
 npm run dev -- --mock      # same, with synthetic HQ data; HQ login password "demo"
 npm run build              # writes ./dist (English + /es Spanish), sitemap, robots, llms.txt
+npm start                  # production server for a VPS: serves ./dist plus the APIs, does not build (docs/VPS.md)
 npm test                   # node --test test/*.test.js
 node --test test/sales-accuracy.test.js                      # one file
 node --test --test-name-pattern "closing date" test/*.test.js # one test by name
@@ -20,7 +21,7 @@ node scripts/i18n.mjs extract --out todo.json                 # list missing Spa
 
 On Node 18, tests that touch `crypto.randomUUID` need `node --experimental-global-webcrypto --test …`.
 
-The dev server does not watch files: after editing, run `npm run build` (it serves straight from `dist/`) and reload. It exits if a request lands while `dist/` is being rebuilt, and `test/improvements.test.js` runs `node build.mjs` into the same `dist/`, so don't run the tests while the server is starting.
+The dev server does not watch files: after editing, run `npm run build` (it serves straight from `dist/`) and reload. The build writes to `dist.next/` and swaps it in at the end, so a running server keeps answering during a rebuild. `test/improvements.test.js` runs `node build.mjs` into the same `dist/`.
 
 `main` is the only long-lived branch and is what Vercel deploys. Work on a short-lived branch and open a PR; CI (Node 22) runs `npm ci`, `npm test`, `npm run build` and checks that at least 35 HTML pages were built.
 
@@ -41,6 +42,7 @@ The dev server does not watch files: after editing, run `npm run build` (it serv
 - `api/hq.js`: the private HQ CRM, password-protected, at `/hq`.
 - `api/intake.js`: an authenticated bridge from Harbison Standard.
 - `api/track.js`: first-party analytics.
+- `server.mjs` runs those four handlers and serves `dist/` on a VPS. It reads `vercel.json` for redirects, rewrites and headers, so add routing rules there, not in the server. `deploy/` holds the systemd unit, the Caddy config and the release script; a VPS build sets `VERCEL_INSIGHTS=off`.
 - `lib/` holds the shared helpers. `static/hq/` is a separate app with its own CSS; public-site restyles don't apply to it.
 
 ## Constraints enforced by tests

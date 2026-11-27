@@ -334,7 +334,7 @@ export default async function handler(req, res, env = process.env, phase = COMMA
   body = body && typeof body === 'object' ? body : {};
 
   if (!env.HQ_PASSWORD || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return res.status(503).json({ ok: false, error: 'HQ is not configured yet. Set HQ_PASSWORD, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY in Vercel, then redeploy.' });
+    return res.status(503).json({ ok: false, error: 'HQ is not configured yet. Set HQ_PASSWORD, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY in the hosting settings, then redeploy.' });
   }
 
   if (action === 'login' && req.method === 'POST') {

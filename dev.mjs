@@ -73,5 +73,7 @@ createServer(async (req, res) => {
   const file = (await findFile(url.pathname)) || 'dist/404.html';
   res.statusCode = file === 'dist/404.html' && url.pathname !== '/404' ? 404 : 200;
   res.setHeader('Content-Type', types[extname(file)] || 'application/octet-stream');
-  res.end(await readFile(file));
+  let body;
+  try { body = await readFile(file); } catch { res.statusCode = 503; return res.end('Rebuilding. Reload in a moment.'); } // ./dist is being swapped
+  res.end(body);
 }).listen(PORT, HOST, () => console.log(`Preview: http://localhost:${PORT}`));

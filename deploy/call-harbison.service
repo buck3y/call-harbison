@@ -1,0 +1,38 @@
+# systemd unit for the Call Harbison website. Install as /etc/systemd/system/call-harbison.service
+# See docs/VPS.md. The app listens on 127.0.0.1 only; Caddy is the public face.
+[Unit]
+Description=Call Harbison website
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=callharbison
+Group=callharbison
+# "current" is a symlink that deploy/deploy.sh points at the newest release.
+WorkingDirectory=/srv/call-harbison/current
+EnvironmentFile=/etc/call-harbison.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node server.mjs
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=15
+
+# The app only reads its own files and talks to the network, so it gets nothing else.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+RestrictNamespaces=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

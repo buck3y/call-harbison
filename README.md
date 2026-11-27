@@ -1,6 +1,6 @@
-# Harbison Buys Homes
+# Call Harbison
 
-Website for Harbison Buys Homes — "Property problem? Call Harbison." Static pages plus one serverless API for the lead form, built for Vercel.
+Website for Call Harbison (callharbison.com): "Property problem? Call Harbison." Static pages plus four small API routes. It runs on Vercel, or on a single VPS with `npm start` (see [docs/VPS.md](docs/VPS.md)).
 
 ## One CRM for both websites
 
@@ -69,7 +69,7 @@ Run `npm ci` first. Node 22+ is recommended; the isolated SQL tests use the pinn
 
 ## Deploy to Vercel
 
-1. In Vercel: **Add New → Project → Import** `jasonmanuel-cmd/HBH`. Settings are read from `vercel.json` (build: `npm run build`, output: `dist`) — no changes needed.
+1. In Vercel: **Add New → Project → Import** this repository. Settings are read from `vercel.json` (build: `npm test && npm run build`, output: `dist`) — no changes needed.
 2. Add environment variables (Project → Settings → Environment Variables). See `.env.example`. Set **at least one** lead destination:
    - **Email alerts (recommended):** `RESEND_API_KEY`, `LEAD_NOTIFY_EMAIL`, `LEAD_FROM_EMAIL` (sender on a domain verified in Resend).
    - **Database:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — run `supabase/schema.sql` first.
@@ -78,6 +78,17 @@ Run `npm ci` first. Node 22+ is recommended; the isolated SQL tests use the pinn
 3. Redeploy after adding env vars, then add your custom domain under Project → Domains.
 
 If no storing destination is configured (or if a configured Supabase CRM fails to store the lead), `/api/leads` returns `502` rather than reporting false success to the visitor. Partial notification failures (such as a failed email alert after a successful Supabase insert) are recorded directly on the lead's HQ activity timeline.
+
+## Deploy to a VPS
+
+`server.mjs` serves `./dist` and the API routes from one Node process, and reads `vercel.json` for redirects, rewrites and headers so both hosts behave the same.
+
+```bash
+npm ci && npm run build
+npm start                  # http://127.0.0.1:3000, set PORT / HOST to change
+```
+
+For a real server, [docs/VPS.md](docs/VPS.md) has the full setup: a systemd unit, a Caddy config for HTTPS, and `deploy/deploy.sh`, which builds each release in its own folder, switches over, and rolls back if the new one does not answer.
 
 ## Before launch checklist
 
