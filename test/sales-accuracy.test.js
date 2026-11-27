@@ -13,8 +13,8 @@ const es = (file) => translatePage(page(file), { dict, siteUrl: site.url, filePa
 
 test('public copy does not guarantee no showings or a seller-chosen closing date', () => {
   for (const [file, html] of pages) {
-    assert.doesNotMatch(html, /no (?:repairs, |repairs or |staging, )?showings|one walkthrough, no showings|(?:you (?:pick|choose)|pick your|choose your) (?:the )?closing date|closing date you choose|Close on your timeline/i, file);
-    assert.doesNotMatch(es(file), /sin visitas|usted elige la fecha de cierre|elija su fecha de cierre/i, file);
+    assert.doesNotMatch(html, /no (?:repairs, |repairs or |staging, )?showings|one walkthrough, no showings|(?:you (?:pick|choose)|pick your|choose your) (?:the )?closing date|closing date you choose|Close on your timeline|on your schedule|flexible closing/i, file);
+    assert.doesNotMatch(es(file), /sin visitas|usted elige la fecha de cierre|elija su fecha de cierre|según su calendario|en su calendario|cierre flexible/i, file);
   }
   const build = readFileSync(new URL('../build.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(build, /No repairs, showings, or obligation/);

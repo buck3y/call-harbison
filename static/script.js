@@ -426,7 +426,7 @@ document.querySelectorAll('form[data-lead-form]').forEach((form) => {
     });
     form.querySelector('.invalid')?.focus();
     status.textContent =
-      names.length === 1 && names[0] === 'consent_response' ? say('Please check the box so we can respond to your inquiry.', 'Marque la casilla para que podamos responder a su consulta.')
+      names.length === 1 && names[0] === 'consent_response' ? say('Please check the box so we can respond to your request.', 'Marque la casilla para que podamos responder a su solicitud.')
       : fields.includes('relationship') && fields.length === 1 ? say('Please tell us your relationship to the property.', 'Por favor, indíquenos su relación con la propiedad.')
       : say('Please check the highlighted fields and enter valid contact information.', 'Revise los campos resaltados e ingrese información de contacto válida.');
     status.classList.add('error');
@@ -594,18 +594,10 @@ document.querySelectorAll('[data-reply-line]').forEach((el) => {
     const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(parts.weekday);
     const hour = Number(parts.hour);
     const time = now.toLocaleTimeString(locale, { timeZone: tz, hour: 'numeric', minute: '2-digit' });
-    const working = days.includes(day) && hour >= open && hour < close;
-    el.classList.toggle('on', working);
-    if (working) {
-      el.textContent = say(`It’s ${time} in Bakersfield. Nathanael usually replies within a few hours.`, `Son las ${time} en Bakersfield. Nathanael suele responder en unas horas.`);
-      return;
-    }
-    // Next working day (today counts if it's before opening time).
-    let next = hour < open && days.includes(day) ? 0 : 1;
-    while (!days.includes((day + next) % 7) && next < 7) next++;
-    const name = new Date(now.getTime() + next * 864e5).toLocaleDateString(locale, { timeZone: tz, weekday: 'long' });
-    const when = next === 0 ? say('this morning', 'esta mañana') : next === 1 ? say('tomorrow morning', 'mañana por la mañana') : say(`${name} morning`, `el ${name} por la mañana`);
-    el.textContent = say(`It’s ${time} in Bakersfield. Nathanael usually replies ${when}.`, `Son las ${time} en Bakersfield. Nathanael suele responder ${when}.`);
+    el.classList.toggle('on', days.includes(day) && hour >= open && hour < close);
+    // The reply hours in site.config.mjs are still unconfirmed, so both branches give the same 24-hour
+    // promise as the FAQ, Contact, the thank-you page and llms.txt.
+    el.textContent = say(`It’s ${time} in Bakersfield. Nathanael typically replies within 24 hours.`, `Son las ${time} en Bakersfield. Nathanael suele responder en un plazo de 24 horas.`);
   };
   render();
   setInterval(render, 60000);

@@ -13,13 +13,13 @@ export const family = {
   image: img('photo-1570129477492-45c003edd2be'),
   headline: 'Not sure what to do with <em>a loved one’s house?</em>',
   lead: 'Whether a parent, grandparent, or other relative is downsizing, moving into senior living, or simply can’t keep up with the property anymore, we’ll help you understand your options, including selling as-is or listing traditionally.',
-  answer: `If a loved one is moving out of a Kern County home, the family usually has two realistic paths: sell the house as-is (no repairs, no clean-out, flexible closing) or prepare it and list it on the open market for a potentially higher price. ${site.name} reviews the property and shows both options side by side so the family can choose. Only the owner or someone with legal authority, such as an agent under a valid power of attorney, trustee, or conservator, can sign a sale.`,
+  answer: `If a loved one is moving out of a Kern County home, the family usually has two realistic paths: sell the house as-is (no repairs, no clean-out, closing date agreed in writing) or prepare it and list it on the open market for a potentially higher price. ${site.name} reviews the property and shows both options side by side so the family can choose. Only the owner or someone with legal authority, such as an agent under a valid power of attorney, trustee, or conservator, can sign a sale.`,
 
   // Video, Nathanael, 60–90 seconds. Leave id empty until uploaded; a placeholder renders instead.
   heroVideo: { id: '', title: `How ${site.agent} helps families with a loved one’s house` },
 
   problems: [
-    ['The house needs repairs', 'You don’t need to fix anything before talking with us. We’ll tell you honestly whether repairs are worth doing.'],
+    ['The house needs repairs', 'You don’t need to fix anything before talking with us. We’ll tell you whether repairs are worth doing.'],
     ['Decades of belongings', 'You don’t need to empty the house before calling. Belongings can be sorted, sold, donated, or left behind.'],
     ['You live somewhere else', 'Much of the process can be handled by phone, text, email, and e-signature. We can be your eyes on the property.'],
     ['Timing is uncertain', 'A fast closing is possible, but it doesn’t have to happen right away. The move comes first; the house can follow.'],
@@ -44,7 +44,7 @@ export const family = {
     ['Property review', 'A walkthrough, with you, a relative, or remotely by video. We note condition, belongings, and repairs.'],
     ['Options side by side', 'An as-is number next to an estimated listing outcome, with costs and timelines for each.'],
     ['Family decides', 'Take the time you need. Talk it over with siblings, an attorney, or a fiduciary.'],
-    ['Closing on your schedule', 'Escrow and title handle the transfer. Signatures can often be done remotely.'],
+    ['Closing on the agreed date','Escrow and title handle the transfer. Signatures can often be done remotely.'],
   ],
 
   // Four launch videos. Each doubles as an FAQ answer and a YouTube / Shorts asset.

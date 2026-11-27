@@ -42,7 +42,9 @@ test('call and text buttons invoke the appropriate separate phone actions in bot
 
 test('thank-you does not promise an automated confirmation text; form requirements are explicit', () => {
   assert.doesNotMatch(page('thank-you.html'), /reply to our confirmation text/i);
-  assert.match(page('index.html'), /property address, your name, phone number, and permission to respond/);
+  // The four steps (How it works and every situation and area page) state what the form asks for. The home
+  // offer flow no longer repeats it under the form, where the fields themselves already show it.
+  assert.match(page('how-it-works.html'), /The form asks for the address, your name and phone number, and your permission to contact you/);
 });
 
 test('public pages retain canonical URLs and valid JSON-LD; utility pages remain noindex', () => {

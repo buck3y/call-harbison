@@ -19,15 +19,16 @@ export const situations = [
   {
     slug: 'inherited-property',
     answer: "Yes, you can sell an inherited house in Kern County as-is, without clearing it out or making repairs. If the home is in a living trust, the trustee can usually sell without court involvement; if it is going through probate, the executor can often sell during the process. Harbison can buy directly or help you compare a direct sale against listing.",
-    name: 'Inherited Property',
+    name: 'Inherited property',
     title: 'Sell an Inherited House for Cash in Kern County',
+    h2: 'Sell an inherited house for cash in Kern County',
     description: 'Inherited a house in Kern County? Get an as-is cash offer or compare listing with a local licensed agent who works with heirs, trustees, and probate attorneys.',
     headline: 'Inherited a house? <em>Sell it as-is for cash</em>',
     lead: 'Inheriting a property often means belongings to clear, repairs nobody budgeted for, and family members who may not agree on what to do next.',
     image: images.classic,
     body: [
       'You do not need to have everything figured out before you call. We regularly look at homes that have sat untouched for months, still hold a lifetime of belongings, or need work the family is not in a position to take on.',
-      'Depending on the property and your goals, a direct sale may be the simplest path. In other cases, a light clean-up and a traditional listing can net more. Our job is to lay out those options honestly so the family can decide together.',
+      'Depending on the property and your goals, a direct sale may be the simplest path. In other cases, a light clean-up and a traditional listing can net more. We lay out both so the family can decide together.',
       'If the estate is still going through probate, we can work alongside your attorney or executor and plan around the court timeline.',
     ],
     helps: [
@@ -36,6 +37,7 @@ export const situations = [
       'Flexible closing timed around probate or trust administration',
       'Honest comparison of a direct sale vs. listing',
     ],
+    skipFaqs: ['Do I have to make any repairs or clean the house?'],
     faqs: [
       ['Can I sell an inherited house that is still in probate?', 'Often, yes, but it depends on the estate and the court process. We can work with your executor or probate attorney so any sale is structured correctly and timed around required approvals.'],
       ['Do I pay taxes when I sell an inherited house?', 'Inherited property generally gets a stepped-up tax basis equal to its value on the date of death, which can reduce or remove capital gains if you sell soon after. California Proposition 19 affects property tax reassessment for children. Confirm your situation with a tax professional.'],
@@ -45,16 +47,17 @@ export const situations = [
   {
     slug: 'needs-major-repairs',
     answer: "You can sell a Kern County house that needs major repairs without fixing anything. A direct offer accounts for the property’s condition. A purchase without financing avoids lender requirements; buyer inspections, repair requests and access depend on the contract. California sellers must still disclose known defects, even when selling as-is.",
-    name: 'Needs Major Repairs',
+    name: 'Needs major repairs',
     title: 'Sell a House That Needs Repairs for Cash, As-Is',
+    h2: 'Sell a house that needs repairs for cash, as-is',
     description: 'Roof, foundation, plumbing, or years of deferred maintenance? Compare an as-is offer from Harbison with listing or making repairs.',
     headline: 'Big repairs? <em>Sell it as-is for cash</em>',
     lead: 'Foundation cracks, a failing roof, old plumbing, outdated electrical. Major repairs can make a traditional sale feel out of reach.',
     image: images.renovate,
     body: [
-      'Many buyers using conventional loans cannot purchase homes with serious condition issues, and making the repairs yourself means paying up front, managing contractors, and waiting. That is time and money a lot of owners simply do not have.',
-      'Harbison looks at the property the way a builder does: what it needs, what it will cost, and what it could be worth afterward. That lets us make a straightforward offer on the house exactly as it sits today.',
-      'If a few targeted repairs would dramatically improve your result on the open market, we will tell you that too.',
+      'Many buyers using conventional loans cannot purchase homes with serious condition issues, and making the repairs yourself means paying up front, managing contractors, and waiting. That is time and money a lot of owners do not have.',
+      'Harbison looks at the property the way a builder does: what it needs, what it will cost, and what it could be worth afterward. That lets us make an offer on the house as it sits today.',
+      'If a few targeted repairs would raise what you net on the open market, we will tell you that too.',
     ],
     helps: [
       'No repairs or cleaning needed for the initial review',
@@ -62,6 +65,7 @@ export const situations = [
       'Inspection and repair terms agreed in writing',
       'Straight answer on whether repairs would pay off for you',
     ],
+    skipFaqs: ['Do I have to make any repairs or clean the house?'],
     faqs: [
       ['Will you still make an offer if the house has foundation or roof problems?', 'Yes. Condition issues are factored into the offer. You do not need to fix anything first.'],
       ['How do I sell a house that needs repairs in California?', 'You can sell it as-is without fixing anything, disclose the known defects, and compare a cash as-is offer with the cost and time of repairing and listing. Get a repair estimate if you are unsure which is better.'],
@@ -71,8 +75,9 @@ export const situations = [
   {
     slug: 'vacant-property',
     answer: "Yes, Harbison buys vacant houses and lots across Kern County as-is, including properties that are neglected, overgrown, or owned by out-of-area sellers. Most of the process can be done remotely, and closing happens through a local title or escrow company.",
-    name: 'Vacant Property',
+    name: 'Vacant property',
     title: 'Sell a Vacant House for Cash in Kern County',
+    h2: 'Sell a vacant house for cash in Kern County',
     description: 'A vacant house costs you in taxes, insurance, utilities, and risk. Harbison buys vacant houses and lots for cash across Kern County, as-is.',
     headline: 'Empty house? <em>Stop paying to hold it</em>',
     lead: 'A vacant property costs you taxes, insurance, utilities, and maintenance every month, and empty homes can attract break-ins, squatters, and vandalism.',
@@ -96,8 +101,9 @@ export const situations = [
   {
     slug: 'problem-tenants',
     answer: "You can sell a Kern County rental with tenants still living in it. Harbison can buy tenant-occupied properties subject to the existing lease and California tenant protections, with access, inspections and repairs subject to the agreement and applicable law.",
-    name: 'Problem Tenants',
+    name: 'Problem tenants',
     title: 'Sell a Rental With Problem Tenants for Cash',
+    h2: 'Sell a rental with problem tenants for cash',
     description: 'Tired of being a landlord? Harbison buys Kern County rental properties for cash with tenants in place, including difficult situations.',
     headline: 'Tired of being a landlord? <em>Sell with tenants in place</em>',
     lead: 'Late rent, property damage, and constant calls can turn a rental from an investment into a burden.',
@@ -123,6 +129,7 @@ export const situations = [
     answer: "If you are relocating, Harbison can help compare a direct as-is sale with listing your Kern County house. Discuss your target move date, property access and any post-closing occupancy before signing. The written agreement, title and escrow determine the closing timeline.",
     name: 'Relocation',
     title: 'Relocating? Sell Your Kern County House for Cash',
+    h2: 'Relocating? Sell your Kern County house for cash',
     description: 'Moving for work, family, or a fresh start? Compare a direct as-is sale with listing your Kern County house and discuss timing before signing.',
     headline: 'Moving on? <em>Discuss your closing timeline</em>',
     lead: 'A new job or family move rarely waits for the perfect listing season. Carrying two housing payments or managing a sale from far away adds real stress.',
@@ -146,10 +153,11 @@ export const situations = [
   {
     slug: 'life-change',
     answer: "During a divorce, downsizing, or other life change, a direct sale can simplify selling a Kern County home: a written offer and a closing plan that takes your transition into account. The closing date depends on the agreement, title and escrow. All owners on title generally must sign, and Harbison can share information with each party and their representatives.",
-    name: 'Life Change',
+    name: 'Life change',
     title: 'Selling a House During Divorce or a Life Change',
+    h2: 'Selling a house during divorce or a life change',
     description: 'Divorce, downsizing, health changes, or retirement. Harbison offers a calm, simple way to sell a Kern County property when life shifts.',
-    headline: 'Life changed? <em>Sell on your schedule</em>',
+    headline: 'Life changed? <em>Decide about the house when you’re ready</em>',
     lead: 'Divorce, downsizing, a health change, retirement, or a growing family. Big life changes often mean the house needs to change too.',
     image: images.valley,
     body: [
@@ -171,8 +179,9 @@ export const situations = [
   {
     slug: 'fire-water-damage',
     answer: "Yes, you can sell a fire- or water-damaged house in Kern County as-is, even if it is not livable. Harbison evaluates the damage and makes an offer on the property as it sits. Check with your insurer before selling, because a sale can affect how your claim is paid.",
-    name: 'Fire / Water Damage',
+    name: 'Fire or water damage',
     title: 'Sell a Fire- or Water-Damaged House for Cash',
+    h2: 'Sell a fire- or water-damaged house for cash',
     description: 'Fire, smoke, flood, or water damage? Harbison buys damaged houses across Kern County as-is. No restoration required.',
     headline: 'Fire or water damage? <em>You still have options</em>',
     lead: 'After a fire, leak, or flood, owners face restoration bids, insurance claims, and a house that may not be livable.',
@@ -196,8 +205,9 @@ export const situations = [
   {
     slug: 'unfinished-remodel',
     answer: "You can sell a house with an unfinished remodel or open permits as-is. Harbison evaluates the remaining work, including unpermitted items, and prices it into the offer, so you do not need to hire another contractor or finish the project first.",
-    name: 'Unfinished Remodel',
+    name: 'Unfinished remodel',
     title: 'Sell a House With an Unfinished Remodel',
+    h2: 'Sell a house with an unfinished remodel',
     description: 'Stalled renovation, open permits, or a contractor who walked away? Harbison buys Kern County homes with unfinished remodels.',
     headline: 'Remodel stalled? <em>Sell it as-is for cash</em>',
     lead: 'A project that ran over budget, a contractor who disappeared, or permits that never closed out. Unfinished remodels are hard to sell and expensive to finish.',
@@ -205,7 +215,7 @@ export const situations = [
     body: [
       'Half-finished kitchens, open walls, and missing permits scare off most retail buyers and many lenders.',
       'Harbison’s construction perspective means we can size up what is left to do, including permit status, and make an offer that accounts for it.',
-      'If finishing a few key items would change your outcome significantly, we will walk you through that option too.',
+      'If finishing a few key items would change what you net, we will walk you through that option too.',
     ],
     helps: [
       'Buy mid-project, as-is',
@@ -254,7 +264,7 @@ export const areas = [
     image: images.valley,
     body: [
       'Properties in Golden Hills, Bear Valley Springs, Stallion Springs, and the surrounding areas can be harder to value than typical tract homes. Wells, septic, access roads, and acreage all play a role.',
-      'We look at the whole picture, including land and development potential, and give you a straightforward read on your options.',
+      'We look at the whole picture, including land and development potential, and lay out your options.',
     ],
     places: ['Tehachapi', 'Golden Hills', 'Bear Valley Springs', 'Stallion Springs', 'Alpine Forest', 'Sand Canyon'],
     faqs: [
@@ -274,7 +284,7 @@ export const areas = [
     lead: 'We review houses, rentals, and land across Kern County. From the valley floor to the mountains and the desert.',
     image: images.land,
     body: [
-      'Whether your property is in a smaller community or on a rural parcel, we can evaluate it and give you a clear, honest set of options.',
+      'Whether your property is in a smaller community or on a rural parcel, we can evaluate it and lay out your options.',
       'Not sure if your location qualifies? Send the address. If it is not a fit for us, we will tell you quickly.',
     ],
     places: ['Bakersfield', 'Tehachapi', 'California City', 'Stallion Springs', 'Arvin', 'Delano', 'Lamont', 'McFarland', 'Shafter', 'Wasco', 'Taft', 'Ridgecrest', 'Lake Isabella'],

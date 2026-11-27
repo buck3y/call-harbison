@@ -4,51 +4,23 @@
 import site from '../site.config.mjs';
 import { images } from './content.mjs';
 
-
-export const heroCopy = {
-  eyebrow: 'Bakersfield • Tehachapi • Kern County',
-  sub: 'Need to sell a house in Bakersfield or Kern County? Request a written cash offer on the property as it is. No cleaning or repairs are needed for the first review. You can also compare listing, renovating, or developing.',
-  trust: [
-    ['As-is cash offer', 'No repairs to start'],
-    ['Cash or another path', 'You compare, then decide'],
-    ['Local and licensed', `DRE #${site.dre}`],
-    ['No obligation', 'You decide'],
-  ],
-};
-
-export const reassurance = [
-  'No repairs required to start',
-  'Property access arranged by agreement',
-  'Clear written next steps',
-  'No obligation to accept an offer',
-];
-
 export const processSteps = [
-  ['Tell us the address', `Use the form or call or text ${site.phone}. The form asks for the property address, your name, phone number, and permission to respond.`],
-  ['We review the property and situation', 'Condition, timeline, occupancy, and what you want out of the sale. In person or by video.'],
-  ['You compare your options', 'A direct offer if it fits, and a listing, repair, or development path when those are realistic. In writing, with the assumptions.'],
+  ['Tell us the address', `Use the form, or call or text ${site.phone}. The form asks for the address, your name and phone number, and your permission to contact you.`],
+  ['We review the property and situation', 'We look at the condition, your timeline, who lives there and what you want out of the sale, in person or by video.'],
+  ['You compare your options', 'You get a direct offer if it fits, and a listing, repair or development plan when those are realistic, in writing with the assumptions behind each.'],
   ['You decide what comes next', 'Take the time you need. Talk it over with family or an advisor. There is no obligation.'],
 ];
 
 // The five paths. `route` is stored on the lead as route_interest.
 export const routes = [
-  { route: 'direct', name: 'Sell Direct', text: 'Request a written as-is offer and discuss a closing date. No cleaning or repairs are needed for the initial review.', image: 'home', alt: 'Single-family home exterior' },
-  { route: 'listing', name: 'List on the Market', text: 'If retail exposure is likely to net more, our licensed agent can list the property instead.', image: 'list', alt: 'Bright living room prepared for listing' },
-  { route: 'renovate', name: 'Renovate Then Sell', text: 'A few targeted repairs can change the outcome. We estimate which ones are worth doing, and which are not.', image: 'renovate', alt: 'Contractor reviewing renovation plans' },
-  { route: 'development', name: 'Explore Development', text: 'Some lots are worth more for what could be built. We review zoning, access, and utilities.', image: 'land', alt: 'Open land with development potential' },
-  { route: 'not_ready', name: 'Not Ready Yet', text: 'Get the information now and decide later. We follow up only as often as you ask us to.', image: 'valley', alt: 'Kern County valley landscape' },
+  { route: 'direct', name: 'Sell directly', text: 'Request a written as-is offer and discuss a closing date. No cleaning or repairs are needed for the initial review.', image: 'home', alt: 'Single-family home exterior' },
+  { route: 'listing', name: 'List it', text: 'If the open market is likely to net more, Nathanael can list the property instead.', image: 'list', alt: 'Bright living room prepared for listing' },
+  { route: 'renovate', name: 'Renovate, then sell', text: 'A few targeted repairs can change the outcome. We estimate which ones are worth doing, and which are not.', image: 'renovate', alt: 'Contractor reviewing renovation plans' },
+  { route: 'development', name: 'Consider development', text: 'Some lots are worth more for what could be built. We review zoning, access, and utilities.', image: 'land', alt: 'Open land with development potential' },
+  { route: 'not_ready', name: 'Not ready yet', text: 'Get the information now and decide later. We follow up only as often as you ask us to.', image: 'valley', alt: 'Kern County valley landscape' },
 ];
 
 export const compareDisclosure = 'A direct offer may be lower than the price a property could achieve after repairs, marketing, showings, negotiation, and a traditional sale. A direct sale may provide convenience, speed, reduced preparation, and more control over timing.';
-
-export const whyHarbison = [
-  ['Local Kern County knowledge', 'Bakersfield, Tehachapi, California City, Stallion Springs, and the communities around them.'],
-  ['California-licensed REALTOR®', `${site.agent}, DRE #${site.dre}, with ${site.brokerage}`],
-  ['Construction and remodeling perspective', 'Repair scope is estimated the way a builder sees it, not guessed.'],
-  ['Direct acquisition capability', 'When a direct sale fits, Harbison can be the buyer.'],
-  ['Listing and development perspective', 'When it doesn’t, the same team can list, plan repairs, or review development potential.'],
-  ['Clear options, not one forced solution', 'You see the paths side by side and choose.'],
-];
 
 export const transparency = [
   'You can compare a direct sale with listing.',
@@ -71,7 +43,7 @@ export const safeguards = [
   ['“Stop” means stop', 'Ask us not to call or text and we will stop, immediately.'],
 ];
 
-export const offerExplanation = 'A direct purchase price reflects the property’s condition, expected repairs, transaction costs, financing, holding time, resale risk, and the convenience of selling without preparing and marketing the property. A traditional listing may produce a higher gross price, but may require repairs, showings, time, commissions, and uncertainty.';
+export const offerExplanation = 'A direct purchase price reflects the property’s condition, expected repairs, transaction costs, financing, holding time, resale risk, and the convenience of selling without preparing and marketing the property.';
 
 // Illustrative only, not a formula, a comp, or a promise.
 export const offerExample = [
@@ -81,7 +53,7 @@ export const offerExample = [
   ['Holding and financing during work (about 4 months)', '−$10,000'],
   ['Costs to buy (escrow, title, inspections)', '−$3,000'],
   ['Contingency for surprises, plus buyer margin', '−$35,000'],
-  ['Illustrative direct offer', '≈ $220,000'],
+  ['Direct offer in this example', '≈ $220,000'],
 ];
 
 export const walkthrough = [
@@ -136,8 +108,9 @@ export const newSituations = [
   {
     slug: 'sell-rental-property',
     answer: 'You can sell a Kern County rental property whether it is occupied or vacant. Harbison reviews single-family rentals, duplexes, and small multifamily properties as-is, compares a direct sale with a listing to investors or owner-occupants, and works within existing leases and California tenant protections.',
-    name: 'Sell a Rental Property',
+    name: 'Sell a rental property',
     title: 'Sell a Rental Property in Kern County',
+    h2: 'Sell a rental property in Kern County',
     description: 'Selling a rental in Bakersfield or Kern County? Compare a direct as-is sale with listing to investors. Occupied or vacant, with leases handled through escrow.',
     headline: 'Ready to stop being a landlord? <em>Compare your options</em>',
     lead: 'Whether the property is performing, half-vacant, or needs work, selling a rental involves leases, tenants, deposits, and taxes that a typical home sale doesn’t.',
@@ -162,8 +135,9 @@ export const newSituations = [
   {
     slug: 'failed-listing',
     answer: 'If your Kern County listing expired or was withdrawn without selling, you can relist with a new price and preparation plan, sell directly as-is, or wait. Harbison looks at why it did not sell (price, condition, access, or financing) and compares a relaunch with a direct sale so you can choose.',
-    name: 'Listing Didn’t Sell',
+    name: 'Listing didn’t sell',
     title: 'House Didn’t Sell? Options After an Expired Listing',
+    h2: 'House didn’t sell? Options after an expired listing',
     description: 'Listing expired or withdrawn in Bakersfield or Kern County? Find out why it didn’t sell and compare a relaunch with a direct as-is sale.',
     headline: 'Listing didn’t sell? <em>Let’s find out why</em>',
     lead: 'An expired or withdrawn listing is frustrating, and it usually has a specific cause: price, condition, photos, access for showings, or buyer financing.',
@@ -187,8 +161,9 @@ export const newSituations = [
   {
     slug: 'land-development',
     answer: 'Harbison reviews vacant land, acreage, and homes on large lots that may be worth more for their development potential in Bakersfield, Tehachapi, California City, and across Kern County. We look at zoning, access, utilities, and lot size, then compare selling as-is, improving or splitting the parcel, and listing it.',
-    name: 'Land & Development',
+    name: 'Land and development',
     title: 'Sell Land or a Development Property in Kern County',
+    h2: 'Sell land or a development property in Kern County',
     description: 'Selling vacant land, acreage, or a large lot in Kern County? Harbison reviews zoning, access, utilities, and development potential before you decide.',
     headline: 'Land or a big lot? <em>Find out what it is worth</em>',
     lead: 'Sometimes a property’s value is less about the house and more about the land underneath it: its zoning, size, access, and utilities.',
@@ -204,6 +179,7 @@ export const newSituations = [
       'Vacant land, acreage, and oversized lots',
       'Direct purchase or listing to builders',
     ],
+    skipFaqs: ['Do I have to make any repairs or clean the house?'],
     faqs: [
       ['How is land valued?', 'Mostly by what can be built on it: zoning, usable size, road access, and how close water, sewer, and power are. Two parcels with the same acreage can differ greatly in value.'],
       ['Can I split my lot?', 'Possibly. California’s SB 9 allows some single-family lots to be split, and local zoning sets other options. Eligibility depends on the parcel and on city or county rules, so it takes a property-specific review.'],

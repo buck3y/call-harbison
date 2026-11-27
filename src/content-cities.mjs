@@ -21,6 +21,7 @@ export const cityAreas = [
       'Many Oildale homes are older, and some need roof, plumbing or electrical work. We look at the condition as it is and compare a cash as-is offer with listing, so you can see both numbers in writing.',
     ],
     places: ['Oildale', 'Bakersfield', 'North Bakersfield', 'Greenacres', 'Rosedale'],
+    skipFaqs: ['Do I have to make any repairs or clean the house?'],
     faqs: [
       ['Do you buy houses in Oildale?', 'Yes. We review Oildale houses, rentals and lots in any condition. Because Oildale is unincorporated, we confirm that Kern County is the right office for zoning and permit questions before discussing a plan.'],
       ['Can I sell an older Oildale house that needs repairs?', 'Yes. You can sell as-is without making repairs, though California still requires you to disclose known material defects. We compare an as-is cash offer with the cost and time of fixing and listing.'],

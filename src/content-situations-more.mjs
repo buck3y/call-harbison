@@ -5,8 +5,9 @@ export const moreSituations = [
   {
     slug: 'behind-on-mortgage',
     answer: 'If you are behind on your mortgage in Kern County, contact your servicer and a HUD-approved housing counselor first. Selling can be one option among several, and Call Harbison can compare a direct as-is offer with listing so you can see the numbers. We cannot promise to stop a foreclosure or guarantee a price or closing date.',
-    name: 'Behind on the Mortgage',
+    name: 'Behind on the mortgage',
     title: 'Behind on Your Mortgage? Compare Your Options',
+    h2: 'Behind on your mortgage? Compare your options',
     description: 'Behind on a Bakersfield or Kern County mortgage? Learn about counseling and alternatives, and compare a cash as-is offer with listing before you decide.',
     headline: 'Behind on the mortgage? <em>Compare every option first</em>',
     lead: 'Missed payments are stressful, and a sale is only one of the possible next steps. Start by understanding what your servicer and a counselor can offer.',
@@ -30,8 +31,9 @@ export const moreSituations = [
   {
     slug: 'code-violations-unpermitted-work',
     answer: 'You can sell a Kern County house with code violations or unpermitted work as-is, but California still requires you to disclose known material issues. Call Harbison reviews the property as it stands, compares a cash as-is offer with fixing and listing, and shows how open permits or violations affect the numbers.',
-    name: 'Code Violations & Unpermitted Work',
+    name: 'Code violations and unpermitted work',
     title: 'Sell a House With Code Violations or Unpermitted Work',
+    h2: 'Sell a house with code violations or unpermitted work',
     description: 'Open permits, a code notice or unpermitted additions in Bakersfield or Kern County? Compare a cash as-is offer with fixing and listing.',
     headline: 'Code notice or unpermitted work? <em>Compare your options</em>',
     lead: 'A code violation, an open permit or an addition built without permits can scare off financed buyers and complicate a listing.',
@@ -55,8 +57,9 @@ export const moreSituations = [
   {
     slug: 'hoarding-contents',
     answer: 'You can sell a Kern County house that is full of belongings, including a hoarded home, without clearing it first. Call Harbison reviews the property respectfully as it stands, factors cleanout and condition into an as-is offer, and compares it with preparing and listing.',
-    name: 'Full of Belongings or Hoarding',
+    name: 'Full of belongings or hoarding',
     title: 'Sell a House Full of Belongings or Hoarding',
+    h2: 'Sell a house full of belongings or hoarding',
     description: 'House full of belongings or a hoarding situation in Bakersfield or Kern County? Compare a cash as-is offer with cleanout and listing, with respect and privacy.',
     headline: 'House full of belongings? <em>You do not have to clear it first</em>',
     lead: 'Decades of belongings, a hoarding situation or an estate full of contents can make cleanout feel impossible, and it makes showings hard.',
@@ -72,6 +75,7 @@ export const moreSituations = [
       'Cleanout cost built into the comparison',
       'Works with family, executors and attorneys',
     ],
+    skipFaqs: ['Do I have to make any repairs or clean the house?'],
     faqs: [
       ['Do I have to empty the house before you will look at it?', 'No. No cleaning or repairs are needed for the initial review. Any later access, cleanout or inspections follow the written agreement.'],
       ['Will you keep this private?', 'We do not share your information for others to market to you, and walkthroughs can be scheduled to protect your privacy. Tell us any concerns before the visit.'],
@@ -80,8 +84,9 @@ export const moreSituations = [
   {
     slug: 'liens-back-taxes',
     answer: 'You can often sell a Kern County house that has liens or back property taxes, because payoffs are normally handled through escrow at closing. Call Harbison asks for payoff figures early, compares a cash as-is offer with listing, and shows what would be left after liens, taxes and closing costs.',
-    name: 'Liens & Back Taxes',
+    name: 'Liens and back taxes',
     title: 'Sell a House With Liens or Back Property Taxes',
+    h2: 'Sell a house with liens or back property taxes',
     description: 'Liens, back property taxes or unpaid assessments on a Bakersfield or Kern County house? Compare a cash as-is offer with listing and see your net.',
     headline: 'Liens or back taxes? <em>See what you would net</em>',
     lead: 'Unpaid property taxes, a mechanic’s lien or a judgment lien can feel like a reason you cannot sell, but many are paid from the sale at closing.',

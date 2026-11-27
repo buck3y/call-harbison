@@ -24,13 +24,13 @@ export const californiaCity = {
 };
 
 export const extraFaqs = [
-  ['Is Harbison a licensed real estate agent?', 'Yes. Call Harbison is led by Nathanael Harbison, a California-licensed REALTOR® (DRE #02059393) with The Mora Partners Inc. When Harbison buys a property directly, that licensed status is disclosed to you in writing.'],
+  ['Are you a licensed real estate agent?', 'Yes. Nathanael Harbison is a California-licensed REALTOR® (DRE #02059393) with The Mora Partners Inc. When Call Harbison buys a property directly, his license is disclosed to you in writing.'],
   ['What areas do you serve?', 'Bakersfield, Tehachapi, California City, Stallion Springs, and communities throughout Kern County, California.'],
   ['Do you really pay cash for houses in Bakersfield?', 'Yes. When Harbison buys a house directly, the purchase is made with our own funds. A purchase without financing avoids lender requirements, but inspections, access, and closing timing still follow the written agreement, title, and escrow. Closing goes through a licensed title or escrow company.'],
   ['How fast can I get a cash offer?', 'Send the address or call or text (661) 472-7499. We typically reply within 24 hours. After a walkthrough, in person or by video, you receive your options in writing. No price or closing date is guaranteed before that review.'],
   ['Will a cash offer be lower than listing my house?', 'Often, yes, because a direct buyer takes on repairs, holding costs, and resale risk. For a house that needs major work, the gap can be small once you count repairs, commissions, and months of carrying costs. We show you both numbers.'],
   ['Can I sell my house fast in Bakersfield?', 'Sometimes. A direct sale can close faster than a listing because it does not wait on a buyer’s loan, but timing still depends on title, any payoffs, occupants and escrow, and the date is set in the written agreement. Faster is not always better, so compare the net amount as well as the speed.'],
-  ['Who pays closing costs in a cash sale?', 'It is negotiated and written into the purchase agreement. Typical seller costs include escrow and title fees, the county transfer tax (in Kern County, $1.10 per $1,000 of value) and any loan or lien payoffs. On a direct sale to Harbison you pay no real estate commission to Harbison. Ask for an estimated closing statement before you sign.'],
+  ['Who pays closing costs in a cash sale?', 'It is negotiated and written into the purchase agreement. Typical seller costs include escrow and title fees, the county transfer tax (in Kern County, $1.10 per $1,000 of value) and any loan or lien payoffs. On a direct sale, you pay no real estate commission to Harbison. Ask for an estimated closing statement before you sign.'],
   ['Is it legal to sell a house as-is in California?', 'Yes. You can sell without making repairs, but you must still disclose known material defects, and the standard disclosure forms generally apply. Ask your agent or an attorney which forms apply to your sale.'],
   ['How much do cash buyers pay compared with market value?', 'Usually less than a fully repaired, listed home could bring, because the buyer takes on repairs, holding costs and resale risk. There is no standard percentage. The gap depends on condition, location and timing, and we show the assumptions behind our number so you can compare it with a listing.'],
   ['How quickly will I hear back?', 'Typically within 24 hours. You can also call or text (661) 472-7499.'],
@@ -53,14 +53,14 @@ export const about = {
   title: 'About Nathanael Harbison',
   description: 'Call Harbison is led by Nathanael Harbison, a California-licensed REALTOR® (DRE #02059393) who buys Kern County houses for cash and helps owners list, renovate, or develop.',
   paragraphs: [
-    'Call Harbison is led by Nathanael Harbison, a California-licensed REALTOR® (DRE #02059393) with The Mora Partners Inc. (DRE #02227690). Nathanael works with sellers, buyers, and investors across Bakersfield, Tehachapi, California City, Stallion Springs, and the surrounding communities.',
-    'Because Nathanael is both a licensed agent and a direct buyer, Harbison can do something most “we buy houses” companies cannot: put a cash offer side by side with a traditional listing, a renovation plan, or a development strategy, and tell you honestly which one is likely to serve you best.',
+    'His responsible broker is The Mora Partners Inc. (DRE #02227690). Nathanael works with sellers, buyers, and investors across Bakersfield, Tehachapi, California City, Stallion Springs, and the surrounding communities.',
+    'Because Nathanael is both a licensed agent and a direct buyer, Harbison can do something most “we buy houses” companies cannot: put a cash offer side by side with a traditional listing, a renovation plan, or a development strategy, and tell you which one is likely to serve you best.',
     'His experience includes residential sales across price ranges, investment-property analysis, and special situations such as probate and inherited homes, divorce settlements, short sales, and time-sensitive moves. He listens first, gives plain market feedback, and never pushes a transaction.',
   ],
   principles: [
-    ['Every realistic option', 'We show every realistic path: direct sale, listing, renovation, or development. You choose.'],
+    ['Every realistic option', 'You see each path that could work for the property: a direct sale, a listing, a renovation or a development plan. Then you choose.'],
     ['A builder’s eye on repairs', 'We evaluate condition and repair scope the way a builder does, so offers reflect the real work involved.'],
-    ['Kern County neighborhoods', 'Active in Kern County real estate, with working knowledge of neighborhoods, pricing, and buyer pools.'],
+    ['Kern County neighborhoods', 'Nathanael is active in Kern County real estate and has a working knowledge of its neighborhoods, pricing and buyer pools.'],
     ['Numbers you can check', 'You see how a number was reached. When we buy directly, Nathanael’s license status is disclosed in writing.'],
   ],
 };

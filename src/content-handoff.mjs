@@ -8,6 +8,7 @@ export const handoffTools = [
   "nav": "Both numbers: cash and listing",
   "title": "Get Both Numbers: a Cash Offer and a Listing Estimate",
   "desc": "Ask Nathanael Harbison for a written cash offer and a listing estimate side by side for your Kern County house, with what you’d net from each.",
+  "card": "A written cash offer and a listing estimate side by side, with what you’d net from each.",
   "heading": "See both numbers <em>before you decide</em>",
   "intro": "Nathanael buys houses and lists them, so he can put a written cash offer and a listing estimate side by side for your property. You pick one, or neither.",
   "listH": "What you get",
@@ -15,7 +16,7 @@ export const handoffTools = [
    "A written as-is cash offer, with the assumptions behind it.",
    "A listing estimate based on recent nearby sales, with likely repairs, commission and costs.",
    "What you’d net from each, side by side.",
-   "His honest recommendation. If listing nets more, he’ll say so."
+   "His recommendation, and if listing nets more, he’ll say so."
   ],
   "chipsH": "",
   "chips": [],
@@ -30,8 +31,9 @@ export const handoffTools = [
   "nav": "Repair reality check",
   "title": "Repair Reality Check: Fix It or Sell As-Is?",
   "desc": "Text Nathanael Harbison photos of a repair problem on your Kern County house. He’ll tell you plainly whether to fix it, get bids, or sell as-is. Free.",
+  "card": "Text photos of a repair problem. Nathanael will tell you whether to fix it, get bids, or sell as-is.",
   "heading": "Repair problem? <em>Get a straight answer</em>",
-  "intro": "Text Nathanael a few photos of the problem. He has built and remodeled homes, and he’ll tell you plainly whether it’s worth fixing before you sell, worth getting bids on, or better left for an as-is sale. Free, and no pressure.",
+  "intro": "Text Nathanael a few photos of the problem. He has built and remodeled homes, and he’ll tell you plainly whether it’s worth fixing before you sell, worth getting bids on, or better left for an as-is sale. It’s free, and there’s no pressure.",
   "listH": "Photos that help",
   "list": [
    "A wide shot of the room or area.",
@@ -60,6 +62,7 @@ export const handoffTools = [
   "nav": "Listing didn’t sell?",
   "title": "Listing Didn’t Sell? Get a Free Relaunch Review",
   "desc": "Expired or withdrawn listing in Kern County? Nathanael Harbison will review what went wrong and tell you what he’d change, or whether a direct sale makes more sense.",
+  "card": "Expired or withdrawn listing? Nathanael will tell you what he’d change, or whether a direct sale makes more sense.",
   "heading": "Listing didn’t sell? <em>Find out why</em>",
   "intro": "An expired or withdrawn listing usually has a specific cause. Nathanael will look at what happened and tell you what he’d change, or whether a direct sale makes more sense now.",
   "listH": "What he looks at",
@@ -89,6 +92,7 @@ export const handoffTools = [
   "nav": "Out-of-town owner check-in",
   "title": "Out-of-Town Owner Check-In for Kern County Houses",
   "desc": "Own a vacant or rented Kern County house from far away? Ask Nathanael Harbison for a street-side look and current photos, and talk through your options.",
+  "card": "Live far away? Ask for a street-side look, current photos and a talk about your options.",
   "heading": "Own a Kern County house <em>from far away?</em>",
   "intro": "When you live out of the area, it’s hard to know how a vacant or rented house is holding up. Ask Nathanael for a street-side look and current photos, and talk through your options if you’re ready to sell.",
   "listH": "What you can ask for",
