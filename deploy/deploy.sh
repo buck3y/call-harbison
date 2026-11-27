@@ -74,23 +74,32 @@ as_app mv -T "$CURRENT.next" "$CURRENT"
 if [ "${SKIP_RESTART:-}" = "1" ]; then
   say "Left the service alone (SKIP_RESTART=1)"
 else
-  say "Restarting $SERVICE"
-  as_root systemctl restart "$SERVICE"
   PORT="$(as_app sed -n 's/^PORT=//p' "$ENV_FILE" | tail -n 1 | tr -d "\"' \r")"
   PORT="${PORT:-3000}"
-  healthy=0
-  for _ in $(seq 1 20); do
-    if curl -fsS -o /dev/null "http://127.0.0.1:$PORT/healthz"; then healthy=1; break; fi
-    sleep 0.5
-  done
-  if [ "$healthy" -ne 1 ]; then
+  # Up to ten seconds for the app to answer after a restart.
+  answers() {
+    for _ in $(seq 1 20); do
+      if curl -fs -o /dev/null "http://127.0.0.1:$PORT/healthz"; then return 0; fi
+      sleep 0.5
+    done
+    return 1
+  }
+
+  say "Restarting $SERVICE"
+  as_root systemctl restart "$SERVICE"
+  if ! answers; then
+    hint="Check: journalctl -u $SERVICE -n 50"
     if [ -n "$PREVIOUS" ] && [ -d "$PREVIOUS" ] && [ "$PREVIOUS" != "$RELEASE" ]; then
+      say "The new release did not answer on port $PORT. Putting the previous release back"
       as_app ln -sfn "$PREVIOUS" "$CURRENT.next"
       as_app mv -T "$CURRENT.next" "$CURRENT"
       as_root systemctl restart "$SERVICE"
-      fail "the new release did not answer on port $PORT, so $PREVIOUS is live again. Check: journalctl -u $SERVICE -n 50"
+      # A release that failed is not kept: it must never become a rollback target.
+      as_app rm -rf "$RELEASE"
+      if answers; then fail "the new release did not answer, so $(basename "$PREVIOUS") is live again. $hint"; fi
+      fail "the new release did not answer, and $(basename "$PREVIOUS") is not answering either. The site is down. $hint"
     fi
-    fail "the new release did not answer on port $PORT. Check: journalctl -u $SERVICE -n 50"
+    fail "the new release did not answer on port $PORT and there is no earlier release to put back. $hint"
   fi
 fi
 
