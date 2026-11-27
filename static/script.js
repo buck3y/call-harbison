@@ -904,6 +904,63 @@ document.querySelectorAll('form[data-tool="net-sheet"]').forEach((form) => {
   const on = (n) => Boolean(form.querySelector(`[name="${n}"]`)?.checked);
   const dtt = (price) => (price > 100 ? (Math.ceil(price / 500) * cents) / 100 : 0); // Cal. R&T §11911
   const share = (tax, payer) => (payer === 'buyer' ? 0 : payer === 'split' ? tax / 2 : tax);
+  // Print-only sheet: the visitor's own entries and one statement per path. A line the sheet can't use prints as
+  // missing (never as $0), and a path with an unknown line prints its net as not complete.
+  const sheet = document.querySelector('[data-ns-sheet]');
+  const printBtn = out.querySelector('[data-ns-print]');
+  const raw = (n) => (form.querySelector(`[name="${n}"]`)?.value || '').trim();
+  const labelText = (el) => el?.closest('label')?.querySelector('span')?.textContent.trim() || '';
+  const loadLogo = () => { const img = sheet?.querySelector('img[data-src]'); if (img && !img.getAttribute('src')) img.setAttribute('src', img.dataset.src); };
+  const fillSheet = ({ A, B, bad, miss, noLoan, shortText, holdText }) => {
+    if (!sheet) return;
+    const MISSING = say('Missing', 'Falta');
+    const BLANK = say('Left blank', 'En blanco');
+    const notNumber = (n) => say(`“${raw(n)}” isn’t a number`, `“${raw(n)}” no es un número`);
+    const money = (n, required) => (bad.has(n) ? notNumber(n) : v(n) == null ? (required ? MISSING : BLANK) : fmtUSD(v(n)));
+    const months = (n) => (bad.has(n) ? notNumber(n) : v(n) == null ? (v('monthly') ? MISSING : BLANK) : String(v(n)));
+    const payer = (n) => labelText(form.querySelector(`[name="${n}"]:checked`)) || say('Not answered; counted as the seller', 'Sin respuesta; se cuenta como el vendedor');
+    const entered = {
+      priceA: money('priceA', true), priceB: money('priceB', true),
+      commA: pick('commA') ? `${pick('commA')}%` : MISSING,
+      feesB: money('feesB', false),
+      escrowA: money('escrowA', true),
+      escrowB: on('buyerPaysB') ? say('The buyer pays', 'Lo paga el comprador') : money('escrowB', true),
+      repairsA: money('repairsA', false), otherA: money('otherA', false), otherB: money('otherB', false),
+      monthsA: months('monthsA'), monthsB: months('monthsB'),
+      payerA: payer('payerA'), payerB: payer('payerB'),
+      payoffs: noLoan ? labelText(form.querySelector('[name="noloan"]')) : money('payoffs', true),
+      liens: money('liens', false), monthly: money('monthly', false),
+      mainhome: labelText(form.querySelector('[name="mainhome"]:checked')) || say('Not answered', 'Sin respuesta'),
+    };
+    sheet.querySelectorAll('[data-pin]').forEach((td) => { td.textContent = entered[td.dataset.pin] || ''; });
+    for (const [k, c] of [['a', A], ['b', B]]) {
+      sheet.querySelectorAll(`[data-pst-${k}]`).forEach((td) => {
+        const key = td.getAttribute(`data-pst-${k}`);
+        const val = c ? (key === 'net' ? c.net : c.lines[key]) : null;
+        if (key === 'net') td.textContent = val == null ? say('Not complete', 'Incompleto') : fmtUSD(val);
+        else if (!c) td.textContent = key === 'price' ? MISSING : '—';
+        else td.textContent = val == null ? MISSING : key === 'price' ? fmtUSD(val) : val ? fmtUSD(-val) : '$0';
+      });
+    }
+    const gap = sheet.querySelector('[data-pmissing]');
+    const gapText = !A && !B ? say('No sale price or cash offer typed yet.', 'Todavía no escribió un precio de venta ni una oferta en efectivo.')
+      : miss.length ? say(`Still missing: ${miss.join('; ')}.`, `Falta completar: ${miss.join('; ')}.`) : '';
+    gap.hidden = !gapText; gap.textContent = gapText;
+    const sh = sheet.querySelector('[data-pshort]'); sh.hidden = !shortText; sh.textContent = shortText;
+    const hd = sheet.querySelector('[data-phold]'); hd.hidden = !holdText; hd.textContent = holdText;
+    const day = new Date().toLocaleDateString(spanish ? 'es-US' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    sheet.querySelector('[data-pdate]').textContent = say(`Printed ${day}`, `Impreso el ${day}`);
+    // The print button appears once at least one path has a net; the logo loads then, not for every visitor
+    const ready = [A, B].some((c) => c && c.net != null);
+    if (printBtn) printBtn.hidden = !ready;
+    if (ready) loadLogo();
+  };
+  printBtn?.addEventListener('click', () => {
+    loadLogo();
+    track('cta_click', { cta: 'net_sheet_print' });
+    if (typeof window !== 'undefined' && typeof window.print === 'function') window.print();
+  });
+  if (sheet && typeof window !== 'undefined' && typeof window.addEventListener === 'function') window.addEventListener('beforeprint', loadLogo);
   let started = false;
   const render = () => {
     form.querySelectorAll('.invalid').forEach((el) => el.classList.remove('invalid'));
@@ -979,6 +1036,7 @@ document.querySelectorAll('form[data-tool="net-sheet"]').forEach((form) => {
     const ul = out.querySelector('.ns-missing');
     ul.hidden = !notes.length;
     ul.replaceChildren(...notes.map(([cls, t]) => { const li = document.createElement('li'); if (cls) li.className = cls; li.textContent = t; return li; }));
+    fillSheet({ A, B, bad, miss, noLoan, shortText: short ? text : '', holdText: holdAmt ? hold.textContent : '' });
     if (A && B && !started) { started = true; track('cta_click', { cta: 'net_sheet_result' }); }
   };
   form.addEventListener('input', () => requestAnimationFrame(render));

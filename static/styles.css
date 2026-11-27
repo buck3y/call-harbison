@@ -694,6 +694,9 @@ body[data-page-type="home"] #compare{background:var(--paper-2)}
 .ns-missing .ns-missing-h{font-weight:600;color:var(--ink)}
 .ns-missing .ns-bad{color:var(--danger)}
 .ns-missing .ns-bad+.ns-missing-h{margin-top:8px}
+.ns-out .tool-cta .btn[hidden]{display:none}
+/* The printed worksheet ([data-ns-sheet]) exists only on paper: see the print block at the end */
+.ns-print{display:none}
 /* Which-path quiz */
 .quiz,.pw{gap:32px}
 .quiz .btn{justify-self:start}
@@ -956,4 +959,45 @@ html.no-vt.leaving main,html.no-vt.leaving .footer{opacity:0;transition:opacity 
   .prose a[href^="http"]::after,.pw-where a[href^="http"]::after{content:" (" attr(href) ")";position:static;font-size:.8125rem;font-weight:400;color:var(--soft);word-break:break-all}
   h2,h3,.prose-h{break-after:avoid}
   .ns-out,.receipt,tr,.pw-list li,.timeline li,.faq{break-inside:avoid}
+  /* Net sheet: only the visitor's own worksheet prints, on one Letter page with the website's letterhead */
+  @page netsheet{size:letter;margin:.5in}
+  body[data-page-type="net_sheet"]{page:netsheet}
+  body[data-page-type="net_sheet"]>:not(main),body[data-page-type="net_sheet"] main>:not(.tool-page),body[data-page-type="net_sheet"] .tool-page .container>:not(.ns-print){display:none!important}
+  body[data-page-type="net_sheet"] .tool-page{padding:0}
+  .ns-print{display:block;color:var(--ink);font-size:.8125rem;line-height:1.35}
+  .ns-print p{margin:0}
+  .ns-print .nsp-head{display:flex;justify-content:space-between;align-items:flex-end;gap:24px}
+  .ns-print .nsp-logo{display:block;width:168px;height:40px;margin:0 0 12px}
+  .ns-print .nsp-logo:not([src]){visibility:hidden}
+  .ns-print .nsp-from{flex:none;text-align:right;white-space:nowrap;color:var(--text)}
+  .ns-print .nsp-from p:first-child span:first-child{font-weight:600;color:var(--ink)}
+  .ns-print .nsp-from span+span{margin-left:12px}
+  .ns-print .nsp-title{font:600 1.2rem/1.25 var(--sans)}
+  .ns-print .nsp-lead,.ns-print .nsp-disc{margin-top:8px;font-size:.875rem;line-height:1.35}
+  .ns-print .nsp-gap,.ns-print .nsp-short{margin-top:8px;font-size:.875rem;font-weight:600;line-height:1.4}
+  .ns-print .nsp-h{margin:14px 0 2px;font:600 .9375rem/1.3 var(--sans)}
+  .ns-print .nsp-disc{margin-top:12px}
+  /* Notes that bear on the numbers, then the sources */
+  .ns-print .nsp-notes{margin-top:8px;color:var(--text);line-height:1.25}
+  .ns-print .nsp-notes>*{margin:0 0 4px}
+  .nsp-in,.nsp-st{width:100%;border-collapse:collapse;line-height:1.25}
+  .nsp-in th,.nsp-in td,.nsp-st th,.nsp-st td{padding:1px 0;text-align:left;font-weight:400;vertical-align:baseline}
+  .nsp-in td,.nsp-st td{padding-left:12px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .nsp-in td{width:150px;white-space:normal}
+  .nsp-st td{width:1%}
+  .nsp-in th[scope=row]{padding-right:12px}
+  .nsp-in thead th{font-weight:600;color:var(--soft);text-align:right}
+  .nsp-in tbody>tr>*{border-bottom:1px solid var(--line)}
+  .nsp-sts{display:grid;grid-template-columns:1fr 1fr;gap:0 20px;align-items:start}
+  .nsp-st td{padding-left:8px}
+  .nsp-st caption{caption-side:top;padding:0 0 2px;text-align:left;font-weight:600}
+  .nsp-st tbody tr:first-child>*{font-weight:600}
+  .nsp-st tr.total>*{border-top:1px solid var(--ink);padding-top:6px;font-weight:600}
+  .nsp-st tr.total td{font:600 1.0625rem/1.3 var(--sans);font-variant-numeric:tabular-nums}
+  /* Sources run on as one paragraph: "Sources (checked …): A; B; C" */
+  .ns-print .nsp-src-h{display:inline;margin:0;font-weight:600;color:var(--ink)}
+  .ns-print .nsp-src-h::after{content:": "}
+  .nsp-src{display:inline;margin:0;padding:0;color:var(--text)}
+  .nsp-src li{display:inline}
+  .nsp-src li+li::before{content:"; "}
 }

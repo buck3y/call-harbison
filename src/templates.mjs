@@ -1094,17 +1094,68 @@ export function netSheetPage() {
       <p class="tool-note">${C.nsProration}</p>
       <p class="tool-note">${C.nsTaxRate}</p>
       <p class="tool-note">${C.nsDisclaimer}</p>
-      <p class="tool-cta"><a class="btn btn-gold" href="/#lead-form" data-cta="net_sheet_offer">${C.ctaOffer}</a><a class="link" href="/second-opinion">Second opinion on an offer</a></p>
-      ${sourcesList([
-        ['Kern County Assessor-Recorder: document recording', 'https://www.kerncounty.com/government/departments/assessor-recorder/records/document-recording'],
-        ['Cal. Rev. & Tax. Code §11911 (transfer tax)', 'https://california.public.law/codes/revenue_and_taxation_code_section_11911'],
-        ['Cal. Civ. Code §2943 (payoff statements)', 'https://california.public.law/codes/civil_code_section_2943'],
-        ['Cal. Bus. & Prof. Code §10147.5 (commissions are negotiable)', 'https://california.public.law/codes/business_and_professions_code_section_10147.5'],
-        ['Cal. Rev. & Tax. Code §18662 (real estate withholding)', 'https://california.public.law/codes/revenue_and_taxation_code_section_18662'],
-        ['CFPB: find a HUD-approved housing counselor', 'https://www.consumerfinance.gov/find-a-housing-counselor/'],
-      ])}
-    </section>`,
+      <p class="tool-cta"><a class="btn btn-gold" href="/#lead-form" data-cta="net_sheet_offer">${C.ctaOffer}</a><button class="btn btn-ghost" type="button" data-ns-print hidden>Print this sheet</button><a class="link" href="/second-opinion">Second opinion on an offer</a></p>
+      ${sourcesList(nsSources)}
+    </section>
+    ${netSheetPrint()}`,
   });
+}
+
+const nsSources = [
+  ['Kern County Assessor-Recorder: document recording', 'https://www.kerncounty.com/government/departments/assessor-recorder/records/document-recording'],
+  ['Cal. Rev. & Tax. Code §11911 (transfer tax)', 'https://california.public.law/codes/revenue_and_taxation_code_section_11911'],
+  ['Cal. Civ. Code §2943 (payoff statements)', 'https://california.public.law/codes/civil_code_section_2943'],
+  ['Cal. Bus. & Prof. Code §10147.5 (commissions are negotiable)', 'https://california.public.law/codes/business_and_professions_code_section_10147.5'],
+  ['Cal. Rev. & Tax. Code §18662 (real estate withholding)', 'https://california.public.law/codes/revenue_and_taxation_code_section_18662'],
+  ['CFPB: find a HUD-approved housing counselor', 'https://www.consumerfinance.gov/find-a-housing-counselor/', 'help'],
+];
+
+// Print-only: the visitor's own figures on one Letter page, under the website's letterhead. Hidden on screen;
+// script.js fills the [data-p*] cells from the form on every change, so Ctrl+P prints the same page as the button.
+// The page must read as the visitor's worksheet, never as something Nathanael prepared or stands behind.
+function netSheetPrint() {
+  const host = new URL(site.url).host;
+  const entered = [
+    [C.rPrice, 'priceA', 'priceB'], [C.nsComm, 'commA', ''], [C.nsFees, '', 'feesB'], [C.nsEscrow, 'escrowA', 'escrowB'],
+    [C.nsRepairs, 'repairsA', ''], [C.nsOther, 'otherA', 'otherB'], [C.nsMonths, 'monthsA', 'monthsB'], [C.nsPayer, 'payerA', 'payerB'],
+    [C.nsPayoffs, 'payoffs', 'payoffs'], [C.nsLiens, 'liens', 'liens'], [C.nsMonthly, 'monthly', 'monthly'], [C.nsMain, 'mainhome', 'mainhome'],
+  ];
+  const cell = (key) => (key ? `<td data-pin="${key}"></td>` : '<td>—</td>');
+  // Both statements carry every line (— where a line doesn't apply to that path), so the rows line up across
+  const statement = (k, label, na) => `<table class="nsp-st"><caption>${label}</caption><tbody>
+        ${nsRows.map(([l, key]) => `<tr><th scope="row">${l}</th>${na.includes(key) ? '<td>—</td>' : `<td data-pst-${k}="${key}"></td>`}</tr>`).join('')}
+        <tr class="total"><th scope="row">${C.rNet}</th><td data-pst-${k}="net"></td></tr>
+      </tbody></table>`;
+  return `<section class="ns-print" data-ns-sheet aria-hidden="true">
+      <div class="nsp-head">
+        <div><img class="nsp-logo" data-src="${logo}" alt="" width="168" height="40"><p class="nsp-title">Seller net sheet: your own figures</p></div>
+        <div class="nsp-from">
+          <p><span>${esc(site.name)}</span> <span>${esc(site.phone)}</span> <span>${esc(host)}</span></p>
+          <p>${esc(site.agent)}, REALTOR®, DRE #${esc(site.dre)}</p>
+          <p>${esc(site.brokerage)}, DRE #${esc(site.brokerageDre)}</p>
+          <p data-pdate></p>
+        </div>
+      </div>
+      <p class="nsp-lead">You typed every figure on this page into the seller net sheet at ${esc(host)}. Nathanael Harbison did not prepare or review it, and it is not an opinion of price or a closing statement.</p>
+      <p class="nsp-gap" data-pmissing hidden></p>
+      <p class="nsp-h">What you entered</p>
+      <table class="nsp-in"><thead><tr><th scope="col"><span class="sr-only">Line</span></th><th scope="col">${C.nsColA}</th><th scope="col">${C.nsColB}</th></tr></thead><tbody>
+        ${entered.map(([label, a, b]) => `<tr><th scope="row">${label}</th>${cell(a)}${cell(b)}</tr>`).join('')}
+      </tbody></table>
+      <p class="nsp-h">${C.nsOut}</p>
+      <div class="nsp-sts">
+        ${statement('a', C.nsColA, ['buyerFees'])}
+        ${statement('b', C.nsColB, ['commission', 'repairs'])}
+      </div>
+      <p class="nsp-short" data-pshort hidden></p>
+      <p class="nsp-disc">${C.nsDisclaimer}</p>
+      <div class="nsp-notes">
+        <p data-phold hidden></p>
+        <p>${C.nsProration}</p>
+        <p>${C.nsTaxRate}</p>
+        <div class="nsp-srcs"><p class="nsp-src-h">${C.sources}</p><ul class="nsp-src">${nsSources.filter(([, , kind]) => kind !== 'help').map(([label]) => `<li>${label}</li>`).join('')}</ul></div>
+      </div>
+    </section>`;
 }
 
 export function whichPathPage() {
