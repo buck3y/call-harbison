@@ -620,18 +620,10 @@ function detailPage({ item, path, crumbs, extra = '', form = {}, pageType = 'pag
       <h2 class="prose-h">${esc(item.h2 || item.title)}</h2>
       ${item.body.map((p) => `<p>${esc(p)}</p>`).join('\n      ')}
       ${(localSections[item.slug] || []).map(([h, paragraphs]) => `<section${item.slug === 'land-development' ? ' id="tehachapi-land"' : ''}><h2 class="prose-h">${esc(h)}</h2>${paragraphs.map(p => (Array.isArray(p) ? `<ul class="link-list">${p.map((l) => `<li>${l}</li>`).join('')}</ul>` : `<p>${p}</p>`)).join('')}</section>`).join('')}
+      <p>After you send the address, Nathanael looks at the property and your situation, then gives you your options in writing. There is no obligation. <a href="/how-it-works">See how it works</a></p>
       ${extra}
       <p class="updated">Last updated ${niceDate(contentDate(path))}</p>
     </article>
-  </div>
-</section>
-
-<section class="section navy">
-  <div class="container">
-    <div class="section-head center">
-      <h2>What happens after you send the address</h2>
-    </div>
-    ${steps(true)}
   </div>
 </section>
 

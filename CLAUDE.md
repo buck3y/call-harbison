@@ -71,7 +71,7 @@ The dev server does not watch files: after editing, run `npm run build` (it serv
   - One font family, Public Sans, for headings and text, self-hosted in `static/fonts/`. Serif headings on cream were dropped because they read as AI-made.
 - **Layout:**
   - Every page opens with a navy photo header (`imageHeader()`, or `.hero-sub` / `.home-hero`). The photos are Unsplash stock URLs in `images` (`src/content.mjs`), meant to be replaced by real Kern County photos; `heroPicture()` skips the download on phones.
-  - The home page is: hero with the street + ZIP bar, then a signed note from Nathanael, then the FAQ. (The four steps live on `/how-it-works`, not the home page.)
+  - The home page is: hero with the street + ZIP bar, then a signed note from Nathanael, then the FAQ. (The four steps live only on `/how-it-works`: not on the home page, and not on the situation or area pages, which link to it in one line.)
   - One left edge: reading columns (`.container.narrow`) hang from the container's left edge and are never centred. On the home page the note and the FAQ share one text column, with the portrait in the margin.
   - One gold button per screen. The header button is an outline on pages with a hero address bar, and the phone bar hides its button while the hero is on screen (`body.hero-in`).
   - No white panel on a white page. `content-visibility:auto` was removed on purpose: it made the page height jump while scrolling.
