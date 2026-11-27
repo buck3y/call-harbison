@@ -313,7 +313,7 @@ body.flow-open{overflow:hidden}
 /* ---------- Home: a signed note from Nathanael (section #compare, on the paper-2 band) ---------- */
 body[data-page-type="home"] #compare{background:var(--paper-2)}
 .note{display:grid;grid-template-columns:200px minmax(0,1fr);gap:clamp(28px,5vw,64px);align-items:start}
-.note-photo{width:200px;height:200px;object-fit:cover;border-radius:var(--r);position:sticky;top:calc(var(--header-h) + 24px)}
+.note-photo{width:200px;height:200px;object-fit:cover;border-radius:12px;position:sticky;top:calc(var(--header-h) + 24px)}
 .note-body{max-width:640px}
 .note-body h2{margin:0 0 16px}
 .note-body p{max-width:65ch}
@@ -860,7 +860,7 @@ html.no-vt.leaving main,html.no-vt.leaving .footer{opacity:0;transition:opacity 
   .ns-cols{grid-template-columns:1fr}
   .tool-card{grid-template-columns:minmax(0,1fr)}
   .note{grid-template-columns:1fr}
-  .note-photo{position:static;width:120px;height:120px;border-radius:var(--r)}
+  .note-photo{position:static;width:120px;height:120px;border-radius:8px}
   .sit-list{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:720px){
