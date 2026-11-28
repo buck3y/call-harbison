@@ -269,7 +269,8 @@ async function handle(url, init = {}) {
 export function installMockSupabase(env = process.env) {
   env.SUPABASE_URL = HOST;
   env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-key';
-  env.HQ_PASSWORD = env.HQ_PASSWORD || 'demo';
+  // The demo password is short on purpose; only the mocks and tests may opt out of HQ's 12-character minimum.
+  if (!env.HQ_PASSWORD) Object.assign(env, { HQ_PASSWORD: 'demo', HQ_ALLOW_SHORT_PASSWORD: '1' });
   const real = globalThis.fetch;
   globalThis.fetch = (url, init) => (String(url).startsWith(HOST) ? handle(String(url), init) : real(url, init));
 }

@@ -4,7 +4,8 @@ import track from '../api/track.js';
 import hq, { makeSession } from '../api/hq.js';
 
 // The shared (forwarding) collector: the default on Vercel, and ANALYTICS_STORE=shared anywhere else.
-const env = { ANALYTICS_STORE: 'shared', CRM_INGEST_SECRET: 'test-secret-at-least-thirty-two-characters', HQ_PASSWORD: 'test', SUPABASE_URL: 'https://test.invalid', SUPABASE_SERVICE_ROLE_KEY: 'test' };
+// HQ_PASSWORD: HQ needs at least 12 characters.
+const env = { ANALYTICS_STORE: 'shared', CRM_INGEST_SECRET: 'test-secret-at-least-thirty-two-characters', HQ_PASSWORD: 'test-password-123', SUPABASE_URL: 'https://test.invalid', SUPABASE_SERVICE_ROLE_KEY: 'test' };
 const response = () => ({ statusCode: 200, headers: {}, setHeader(k,v) { this.headers[k]=v; }, status(c) { this.statusCode=c; return this; }, json(b) { this.body=b; return this; } });
 test('collector labels its own site, strips query strings and never forwards raw IP', async () => {
   const original = globalThis.fetch;
@@ -36,7 +37,7 @@ test('collector excludes HQ pages, unsupported events and privacy opt-outs', asy
 });
 test('HQ forwards only the selected known site and rejects unknown sites', async () => {
   const original=globalThis.fetch;
-  const headers={cookie:`hq_session=${makeSession('test',env)}`};
+  const headers={cookie:`__Host-hq_session=${makeSession('test',env)}`};
   globalThis.fetch=async(url)=>{
     assert.equal(url,'https://www.harbisonstandard.com/api/hq/analytics?days=7&site=call_harbison');
     return Response.json({site:'call_harbison',totals:{sessions:0},daily:[]});

@@ -61,7 +61,7 @@ test('both website inquiries appear in one HQ; filters, retries, details and sta
 
     const seller = parseLead({ address: '456 Example St', name: 'Shared Test Seller', phone: '6615550101', form_type: 'options', consent_response: true }).lead;
     assert.equal((await deliver(seller, env)).ok, true);
-    const headers = { cookie: `hq_session=${makeSession('Test Admin', env)}`, 'x-hq': '1' };
+    const headers = { cookie: `__Host-hq_session=${makeSession('Test Admin', env)}`, 'x-hq': '1' };
     const read = (query) => call(hq, { method: 'GET', url: `/api/hq?${query}`, headers });
     const all = await read('action=leads&view=all&q=Shared%20Test');
     assert.equal(all.statusCode, 200);

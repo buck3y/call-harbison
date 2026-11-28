@@ -6,7 +6,8 @@ export async function installOperationsMock(env=process.env) {
  for(const row of seed.leads) {
   const fields=Object.keys(row); await db.query(`insert into leads (${fields.join(',')}) values (${fields.map((_,i)=>`$${i+1}`).join(',')})`,fields.map(k=>row[k]));
  }
- Object.assign(env,{SUPABASE_URL:'http://mock.supabase.local',SUPABASE_SERVICE_ROLE_KEY:'mock-only',HQ_PASSWORD:'demo',HQ_REVIEW_PASSWORD:'review-demo',SELLER_OPERATIONS_ENABLED:'true',SELLER_OUTBOX_DISPATCH_ENABLED:'false'});
+ // HQ_ALLOW_SHORT_PASSWORD: the demo password is short on purpose; only the mocks and tests opt out of the minimum.
+ Object.assign(env,{SUPABASE_URL:'http://mock.supabase.local',SUPABASE_SERVICE_ROLE_KEY:'mock-only',HQ_PASSWORD:'demo',HQ_ALLOW_SHORT_PASSWORD:'1',HQ_REVIEW_PASSWORD:'review-demo',SELLER_OPERATIONS_ENABLED:'true',SELLER_OUTBOX_DISPATCH_ENABLED:'false'});
  globalThis.fetch=async (url,init={})=>{
   if (!String(url).startsWith(env.SUPABASE_URL+'/rest/v1/')) throw new Error('External fetch blocked in mock mode');
   const u=new URL(url), path=u.pathname.replace('/rest/v1/','');

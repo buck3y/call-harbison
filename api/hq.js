@@ -4,17 +4,21 @@ import { sellerOperations } from '../lib/seller-operations-api.js';
 // HQ panel API: POST/GET/PATCH/DELETE /api/hq?action=...
 // Password login (HQ_PASSWORD) → signed, HttpOnly session cookie. All data access happens here, on the server.
 //
-// Env: HQ_PASSWORD (required). The database is the site's own (lib/local-database.js sets SUPABASE_URL and
-//      SUPABASE_SERVICE_ROLE_KEY, the latter to the key in the state folder's signing-key), or a Supabase project.
-//      HQ_SESSION_SECRET (optional — otherwise derived from the password + that key, so changing the password
-//      signs everyone out).
+// Env: HQ_PASSWORD (required, at least 12 characters; HQ stays off with a shorter one). The database is the site's
+//      own (lib/local-database.js sets SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY, the latter to the key in the state
+//      folder's signing-key), or a Supabase project. Sessions are signed with a key from lib/secrets.js that also
+//      depends on the password, so changing HQ_PASSWORD signs everyone out: that is how sessions are revoked.
+//      HQ_HOST (optional): HQ's own host name; server.mjs then serves HQ only there.
 import { createHmac, createHash, timingSafeEqual } from 'node:crypto';
 import { brandOf, brandFilter, STANDARD_FORM } from '../lib/shared-intake.js';
 import { demoLeadReason } from '../lib/demo-leads.js';
-import { clientIp, createRateLimiter } from '../lib/request-ip.js';
+import { addressForLog, cleanForLog, clientIp, createRateLimiter, rateKey } from '../lib/request-ip.js';
 import { prepareLeadImport } from '../lib/lead-import.js';
 import { fetchWithRetry } from '../lib/fetch-retry.js';
 import { analyticsSources, getAnalyticsStore, isLocalAnalytics } from '../lib/analytics-store.js';
+import { keyFor, sessionPurpose } from '../lib/secrets.js';
+import { isCrossSite } from '../lib/request-origin.js';
+import { webhookHeaders } from '../lib/lead-alerts.js';
 import { notificationRecipients } from './leads.js';
 
 export const STATUSES = ['new', 'contact_attempted', 'connected', 'qualified', 'appointment_set', 'property_reviewed', 'options_presented', 'nurture', 'under_contract', 'closed_won', 'closed_lost', 'not_a_fit', 'spam'];
@@ -29,7 +33,12 @@ const EMPTY_TRASH_MAX = 200;
 const EVENT_KINDS = ['note', 'call', 'text', 'email', 'appointment', 'offer'];
 const CONTACT_KINDS = ['call', 'text', 'email'];
 const SESSION_HOURS = 12;
-const COOKIE = 'hq_session';
+// __Host-: the browser keeps it only if it is Secure, has Path=/ and no Domain, so no other host (a subdomain, or
+// plain http) can set or overwrite it.
+export const COOKIE = '__Host-hq_session';
+export const MIN_PASSWORD_LENGTH = 12;
+// What anyone who is not signed in sees while HQ is not set up. The reason goes to the server log, never here.
+export const NOT_AVAILABLE = 'HQ is not available on this server yet.';
 
 const LIST_COLS = 'id,created_at,name,phone,email,address,situation,status,channel,source,route_interest,next_followup,appointment_at,assigned_to,do_not_contact,form_type';
 const EXPORT_COLS = 'id,created_at,name,phone,email,address,situation,timeline,status,assigned_to,form_type,channel,route_interest,ref_partner,utm_source,utm_medium,utm_campaign,gclid,first_contact_at,appointment_at,next_followup,estimated_value,offer_amount,outcome_path,closed_value,gross_profit,closed_at,lost_reason,consent_response,consent_marketing,do_not_contact';
@@ -160,10 +169,33 @@ export function buildSearchOr(rawQ) {
   return clauses.length ? `or(${[...new Set(clauses)].join(',')})` : null;
 }
 
+// ---------- setup ----------
+// The demo mocks (dev/mock-supabase.mjs, dev/operations-mock.mjs) and tests use the password "demo" and opt out of
+// the length rule with HQ_ALLOW_SHORT_PASSWORD=1. Not for a real server.
+export const hqPasswordUsable = (env) => {
+  const password = typeof env.HQ_PASSWORD === 'string' ? env.HQ_PASSWORD : '';
+  return password.length >= MIN_PASSWORD_LENGTH || (password.length > 0 && env.HQ_ALLOW_SHORT_PASSWORD === '1');
+};
+
+// Why HQ is off, naming the setting, or null when it can work. For the server log only.
+export function hqSetupProblem(env) {
+  if (!env.HQ_PASSWORD) return 'HQ is off: HQ_PASSWORD is not set. Set it in the settings file (/etc/call-harbison.env), then restart the site.';
+  if (!hqPasswordUsable(env)) return `HQ is off: HQ_PASSWORD is shorter than ${MIN_PASSWORD_LENGTH} characters. Set a longer one in the settings file, then restart the site.`;
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return 'HQ is off: it has no database. Start the site with server.mjs, which opens its own database, or set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.';
+  return null;
+}
+
+// Logs the reason once per process (server.mjs calls this at start; a serverless instance, at its first refusal).
+let notedProblem = null;
+export function noteHqSetup(env, log = console.warn) {
+  const problem = hqSetupProblem(env);
+  if (problem && problem !== notedProblem) { notedProblem = problem; log(`[hq] ${problem}`); }
+  return problem;
+}
+
 // ---------- sessions ----------
 const b64url = (s) => Buffer.from(s).toString('base64url');
-const sessionKey = (env) => env.HQ_SESSION_SECRET || createHash('sha256').update(`hq-session|${env.SUPABASE_SERVICE_ROLE_KEY || ''}|${env.HQ_PASSWORD || ''}`).digest('hex');
-const sign = (payload, env) => createHmac('sha256', sessionKey(env)).update(payload).digest('base64url');
+const sign = (payload, env) => createHmac('sha256', keyFor(env, sessionPurpose(env))).update(payload).digest('base64url');
 
 export function makeSession(name, env, now = Date.now()) {
   const payload = b64url(JSON.stringify({ n: name, exp: now + SESSION_HOURS * 3600e3 }));
@@ -171,7 +203,7 @@ export function makeSession(name, env, now = Date.now()) {
 }
 
 export function readSession(token, env, now = Date.now()) {
-  if (!token || !env.HQ_PASSWORD) return null;
+  if (!token || typeof token !== 'string' || !hqPasswordUsable(env)) return null;
   const [payload, sig] = token.split('.');
   if (!payload || !sig) return null;
   const expected = sign(payload, env);
@@ -187,19 +219,55 @@ export function readSession(token, env, now = Date.now()) {
 }
 
 export function passwordMatches(given, env) {
-  if (!env.HQ_PASSWORD || typeof given !== 'string') return false;
+  if (!hqPasswordUsable(env) || typeof given !== 'string') return false;
   // Hash both sides so the comparison is constant-time regardless of length.
   const a = createHash('sha256').update(given).digest();
   const b = createHash('sha256').update(env.HQ_PASSWORD).digest();
   return timingSafeEqual(a, b);
 }
 
-const cookies = (req) => Object.fromEntries((req.headers?.cookie || '').split(';').map((c) => c.trim().split('=')).filter(([k]) => k).map(([k, ...v]) => [k, decodeURIComponent(v.join('='))]));
+// A cookie that is not valid percent-encoding is skipped, not a server error.
+const decodeCookie = (v) => { try { return decodeURIComponent(v); } catch { return ''; } };
+const cookies = (req) => Object.fromEntries(String(req.headers?.cookie || '').split(';').map((c) => c.trim().split('=')).filter(([k]) => k).map(([k, ...v]) => [k, decodeCookie(v.join('='))]));
 const setCookie = (res, value, maxAge) => res.setHeader('Set-Cookie', `${COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`);
 
-// Spoof-resistant per-IP throttle on failed logins (8 per 15 minutes).
-export const loginLimiter = createRateLimiter({ max: 8, windowMs: 15 * 60e3 });
+// Failed sign-ins: 8 per 15 minutes per IPv4 address or IPv6 /64 (lib/request-ip.js rateKey; an address that cannot
+// be told shares one bucket), and 40 per 15 minutes from all addresses together. While the shared budget is used
+// up, a sign-in is refused, right password or not: guessing from many addresses gets nowhere. Existing sessions
+// keep working, and so do the addresses below.
+//
+// An address that signed in with the right password in the last 30 days is not refused when the shared budget is
+// used up; its own limit of 8 still applies. Without this, anyone could keep the owner out of HQ with 40 wrong
+// passwords every 15 minutes. Only the right password puts an address on the list, and an address that cannot be
+// told never gets on it. Kept in memory: a restart forgets the list, and clears the throttles too.
+const KNOWN_ADDRESS_MS = 30 * 864e5;
+const KNOWN_ADDRESS_MAX = 200;
+const knownAddresses = new Map(); // rate key -> when it stops being known
+function isKnownAddress(key, now) {
+  const until = knownAddresses.get(key);
+  if (until === undefined) return false;
+  if (until > now) return true;
+  knownAddresses.delete(key);
+  return false;
+}
+function rememberAddress(key, now) {
+  if (!key) return;
+  knownAddresses.delete(key);
+  knownAddresses.set(key, now + KNOWN_ADDRESS_MS);
+  while (knownAddresses.size > KNOWN_ADDRESS_MAX) knownAddresses.delete(knownAddresses.keys().next().value);
+}
+const LOGIN_WINDOW_MS = 15 * 60e3;
+export const LOGIN_MAX_PER_ADDRESS = 8;
+export const LOGIN_MAX_ALL = 40;
+export const loginLimiter = createRateLimiter({ max: LOGIN_MAX_PER_ADDRESS, windowMs: LOGIN_WINDOW_MS });
+export const loginBudget = createRateLimiter({ max: LOGIN_MAX_ALL, windowMs: LOGIN_WINDOW_MS });
 export const testAlertLimiter = createRateLimiter({ max: 4, windowMs: 10 * 60e3 });
+// Lines an outsider can cause (refused cross-site requests): at most 30 per 10 minutes, so they cannot flood the log.
+const refusalLog = createRateLimiter({ max: 30, windowMs: 10 * 60e3 });
+export const resetHqLimits = () => { loginLimiter.reset(); loginBudget.reset(); testAlertLimiter.reset(); refusalLog.reset(); knownAddresses.clear(); };
+
+// A display name as it may appear in a log line or an activity entry: 40 characters, no control characters.
+const displayName = (value) => cleanForLog(typeof value === 'string' ? value : '', 40);
 
 async function logTrashEvent(env, id, detail, actor) {
   try {
@@ -261,7 +329,8 @@ function toCsv(rows) {
   const cell = (v) => {
     if (v == null) return '';
     let s = String(v);
-    if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    // A spreadsheet runs a cell that starts with = + - @ as a formula, also after leading spaces or tabs.
+    if (/^(?:[=+\-@\t\r]|\s+[=+\-@])/.test(s)) s = `'${s}`;
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines = [cols.join(',')];
@@ -334,26 +403,45 @@ export default async function handler(req, res, env = process.env, phase = COMMA
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
   body = body && typeof body === 'object' ? body : {};
 
-  if (!env.HQ_PASSWORD || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return res.status(503).json({ ok: false, error: env.HQ_PASSWORD
-      ? 'HQ has no database. Start the site with server.mjs, which opens its own database, or set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
-      : 'HQ is not configured yet. Set HQ_PASSWORD in the settings file (/etc/call-harbison.env), then restart the site.' });
+  // A page on another website may not change anything here, whatever cookie the browser holds (the X-HQ check
+  // below stays as well).
+  if (req.method !== 'GET' && isCrossSite(req, env)) {
+    const method = /^[A-Z]{1,10}$/.test(String(req.method)) ? req.method : 'request';
+    if (!refusalLog.hit('hq').limited) console.warn(`[security] cross-site ${method} to /api/hq refused`);
+    return res.status(403).json({ ok: false, error: 'Forbidden' });
+  }
+
+  if (hqSetupProblem(env)) {
+    noteHqSetup(env);
+    return res.status(503).json({ ok: false, error: NOT_AVAILABLE });
   }
 
   if (action === 'login' && req.method === 'POST') {
-    const ip = clientIp(req) || 'local';
-    if (loginLimiter.isLimited(ip)) return res.status(429).json({ ok: false, error: 'Too many attempts. Try again in 15 minutes.' });
+    const ip = rateKey(clientIp(req));
+    const from = addressForLog(clientIp(req));
+    const now = Date.now();
+    if ((loginBudget.isLimited('all') && !isKnownAddress(ip, now)) || loginLimiter.isLimited(ip)) return res.status(429).json({ ok: false, error: 'Too many attempts. Try again in 15 minutes.' });
     if (!passwordMatches(body.password, env)) {
-      loginLimiter.hit(ip);
+      const mine = loginLimiter.hit(ip);
+      const all = loginBudget.hit('all');
+      // Never the password, nor the name typed with it.
+      console.warn(`[security] hq sign-in failed from ${from}`);
+      if (mine.count === LOGIN_MAX_PER_ADDRESS) console.warn(`[security] hq sign-in throttled: ${LOGIN_MAX_PER_ADDRESS} failed attempts from ${from}; it is refused for 15 minutes`);
+      if (all.count === LOGIN_MAX_ALL) console.warn(`[security] hq sign-in throttled for everyone: ${LOGIN_MAX_ALL} failed attempts from all addresses within 15 minutes; until the 15 minutes are over, only addresses that signed in before can sign in`);
       await new Promise((r) => setTimeout(r, 400));
       return res.status(401).json({ ok: false, error: 'That password isn’t right.' });
     }
-    const name = (typeof body.name === 'string' ? body.name.trim() : '').slice(0, 40) || 'Team';
+    const name = displayName(body.name) || 'Team';
     setCookie(res, makeSession(name, env), SESSION_HOURS * 3600);
+    rememberAddress(ip, now);
+    console.warn(`[security] hq sign-in ok: ${JSON.stringify(name)} from ${from}`);
     return res.status(200).json({ ok: true, name, sellerOperationsEnabled: env.SELLER_OPERATIONS_ENABLED === 'true', analytics: analyticsSources(env) });
   }
 
+  // Signing out changes state, so it is a POST from the HQ page's own script, like every other write.
   if (action === 'logout') {
+    if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ ok: false, error: 'Method not allowed' }); }
+    if (req.headers?.['x-hq'] !== '1') return res.status(403).json({ ok: false, error: 'Forbidden' });
     setCookie(res, '', 0);
     return res.status(200).json({ ok: true });
   }
@@ -379,13 +467,15 @@ export default async function handler(req, res, env = process.env, phase = COMMA
         ok: true,
         health: {
           crm: { ok: true, label: env.SUPABASE_URL === LOCAL_URL ? 'Database on this server' : 'Supabase shared CRM connected' },
+          // New-lead e-mail goes out only with both a Resend key and LEAD_NOTIFY_EMAIL; `missing` names what is not set.
           email: {
-            configured: Boolean(env.RESEND_API_KEY),
+            configured: Boolean(env.RESEND_API_KEY) && recipients.length > 0,
+            missing: [...(env.RESEND_API_KEY ? [] : ['RESEND_API_KEY']), ...(recipients.length ? [] : ['LEAD_NOTIFY_EMAIL'])],
             fromConfigured: Boolean(fromRaw),
             sandboxSender: !fromRaw || /@resend\.dev\b/i.test(fromRaw),
             recipients: recipients.map(maskEmail),
           },
-          webhook: { configured: Boolean(env.LEAD_WEBHOOK_URL) },
+          webhook: { configured: Boolean(env.LEAD_WEBHOOK_URL), signed: Boolean(env.LEAD_WEBHOOK_URL && env.LEAD_WEBHOOK_SECRET) },
           sms: {
             configured: Boolean(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM),
             staffAlerts: Boolean(env.LEAD_ALERT_SMS),
@@ -397,12 +487,16 @@ export default async function handler(req, res, env = process.env, phase = COMMA
     }
 
     if (action === 'test-alert' && req.method === 'POST') {
-      const ip = clientIp(req) || session.n || 'hq';
-      if (testAlertLimiter.hit(ip).limited) return res.status(429).json({ ok: false, error: 'Wait a few minutes before sending another test alert.' });
+      if (testAlertLimiter.hit(rateKey(clientIp(req))).limited) return res.status(429).json({ ok: false, error: 'Wait a few minutes before sending another test alert.' });
       const channels = [];
       const sentAt = new Date().toISOString();
-      if (env.RESEND_API_KEY) {
-        const recipients = notificationRecipients(env);
+      const recipients = notificationRecipients(env);
+      if (!env.RESEND_API_KEY) {
+        channels.push({ channel: 'email', ok: false, detail: 'RESEND_API_KEY is not set' });
+      } else if (!recipients.length) {
+        // There is no default recipient: without LEAD_NOTIFY_EMAIL nothing is sent.
+        channels.push({ channel: 'email', ok: false, detail: 'LEAD_NOTIFY_EMAIL is not set, so new-lead e-mail is off' });
+      } else {
         const from = (env.LEAD_FROM_EMAIL || '').trim() || 'Harbison Leads <onboarding@resend.dev>';
         try {
           const r = await fetchWithRetry('https://api.resend.com/emails', {
@@ -425,15 +519,14 @@ export default async function handler(req, res, env = process.env, phase = COMMA
         } catch (err) {
           channels.push({ channel: 'email', ok: false, detail: err.message || 'Resend request failed' });
         }
-      } else {
-        channels.push({ channel: 'email', ok: false, detail: 'RESEND_API_KEY is not set' });
       }
       if (env.LEAD_WEBHOOK_URL) {
         try {
+          const hook = JSON.stringify({ kind: 'hq_diagnostic', triggered_by: session.n, sent_at: sentAt });
           const r = await fetchWithRetry(env.LEAD_WEBHOOK_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ kind: 'hq_diagnostic', triggered_by: session.n, sent_at: sentAt }),
+            headers: webhookHeaders(hook, env),
+            body: hook,
           });
           channels.push({ channel: 'webhook', ok: r.ok, detail: r.ok ? `Webhook HTTP ${r.status}` : `Webhook failed (${r.status})` });
         } catch (err) {
@@ -539,7 +632,7 @@ export default async function handler(req, res, env = process.env, phase = COMMA
       const rows = await sb(env, `leads?select=id,created_at,status,channel,form_type,route_interest,situation,first_contact_at,appointment_at,next_followup,gross_profit,closed_at,do_not_contact${env.SELLER_OPERATIONS_ENABLED === 'true' ? ',response_evidence_at,intake_kind,appointment_result' : ''}&created_at=gte.${since}&deleted_at=is.null&limit=5000&order=created_at.desc`);
       const rawWaiting = await sb(env, `leads?select=id,created_at,name,phone,email,address,situation,channel,form_type,do_not_contact&status=eq.new&do_not_contact=eq.false&deleted_at=is.null${env.SELLER_OPERATIONS_ENABLED === 'true' ? '&intake_kind=neq.historical' : ''}&created_at=lte.${fiveMinAgo}&order=created_at.asc&limit=8`);
       const waiting = rawWaiting.map((l) => ({ ...l, minutes_waiting: Math.round((now - Date.parse(l.created_at)) / 60e3) }));
-      const upcoming = await sb(env, `leads?select=id,name,address,situation,form_type,appointment_at&appointment_at=gte.${new Date(now).toISOString()}&deleted_at=is.null${env.SELLER_OPERATIONS_ENABLED === 'true' ? '&or=(appointment_result.is.null,appointment_result.neq.cancelled)' : ''}&order=appointment_at.asc&limit=6`);
+      const upcoming = await sb(env, `leads?select=id,name,address,situation,form_type,appointment_at&appointment_at=gte.${new Date(now).toISOString()}&deleted_at=is.null&status=neq.spam${env.SELLER_OPERATIONS_ENABLED === 'true' ? '&or=(appointment_result.is.null,appointment_result.neq.cancelled)' : ''}&order=appointment_at.asc&limit=6`);
       return res.status(200).json({ ok: true, stats: computeStats(env.SELLER_OPERATIONS_ENABLED === 'true' ? rows.filter(l => l.intake_kind !== 'historical').map(l => ({...l, first_contact_at:l.response_evidence_at})) : rows, now), waiting, upcoming });
     }
 
@@ -597,6 +690,8 @@ export default async function handler(req, res, env = process.env, phase = COMMA
       applyLeadFilters(p, url.searchParams);
       const leads = await sb(env, `leads?${p}`);
       const csv = toCsv(leads);
+      // Who took a copy and how big it was; never the filters, which can hold a name or a phone number.
+      console.warn(`[security] hq export by ${JSON.stringify(displayName(session.n))}: ${leads.length} row(s)`);
       const dateStr = new Date().toISOString().slice(0, 10);
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="harbison-leads-${dateStr}.csv"`);

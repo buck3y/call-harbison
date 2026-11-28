@@ -12,7 +12,7 @@
 // Logs: one line per call, "[mcp] tools/call crm_overview ok 12ms". Never the arguments (a search can hold a name or
 // a phone number), never a result, never the token.
 import { createHash, timingSafeEqual } from 'node:crypto';
-import { clientIp, createRateLimiter } from '../lib/request-ip.js';
+import { addressForLog, clientIp, createRateLimiter, rateKey } from '../lib/request-ip.js';
 import { CODES, dispatch, failure, parseMessage } from '../lib/mcp/protocol.js';
 import { createTools } from '../lib/mcp/tools.js';
 
@@ -46,8 +46,6 @@ function originAllowed(origin, env) {
   return Boolean(given) && allowed.has(given);
 }
 
-const addressForLog = (ip) => String(ip).replace(/[^0-9a-fA-F:.]/g, '').slice(0, 45) || 'unknown';
-
 const send = (res, status, body) => {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   return res.status(status).json(body);
@@ -77,9 +75,9 @@ export default async function handler(req, res, env = process.env) {
   // The right token always gets in. A lockout that also refused it would let anyone shut the owner's assistant out by
   // sending wrong tokens through the same provider, whose servers share addresses. The token is long and random, so
   // guessing it is not a practical attack; counting failures per address only keeps the answers and the log short.
-  // An address that cannot be told is one shared bucket, never "no limit".
+  // One bucket per IPv4 address or IPv6 /64; an address that cannot be told is one shared bucket, never "no limit".
   if (!tokenMatches(headers.authorization, token)) {
-    const ip = clientIp(req) || 'unknown';
+    const ip = rateKey(clientIp(req));
     if (signInLimiter.isLimited(ip)) {
       res.setHeader('Retry-After', '900');
       return send(res, 429, { ok: false, error: 'Too many failed sign-ins. Try again in 15 minutes.' });

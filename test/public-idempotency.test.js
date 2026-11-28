@@ -1,18 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import handler, { readDetailsToken, leadIpLimiter, leadPhoneLimiter } from '../api/leads.js';
+import handler, { readDetailsToken, leadIpLimiter, leadPhoneLimiter, resetLeadLimiters } from '../api/leads.js';
 import { db, installMockSupabase } from '../dev/mock-supabase.mjs';
 
 const body = () => ({ submission_id: randomUUID(), address: '123 Example St, Test, CA', name: 'Test Seller', phone: '6615550192', form_type: 'options', consent_response: true });
+// No client address and one phone number throughout: every call would share the same buckets. This file tests
+// idempotency, not the limits, so each call starts with fresh ones.
 const invoke = async (data, env) => {
+  resetLeadLimiters();
   const res = { statusCode: 200, setHeader() {}, status(code) { this.statusCode = code; return this; }, json(value) { this.body = value; return this; } };
   await handler({ method: 'POST', headers: {}, body: data }, res, env);
   return res;
 };
 async function fixture(fn, { emailFailure = false } = {}) {
   const realFetch = globalThis.fetch, realError = console.error;
-  const env = { RESEND_API_KEY: 'test', HQ_PASSWORD: 'mock' };
+  // LEAD_NOTIFY_EMAIL: there is no default recipient any more.
+  const env = { RESEND_API_KEY: 'test', LEAD_NOTIFY_EMAIL: 'operator@example.invalid', HQ_PASSWORD: 'mock' };
   installMockSupabase(env);
   const mockDbFetch = globalThis.fetch;
   const alerts = [];
@@ -77,7 +81,7 @@ test('stable public submissions reject unconfigured storage and invalid IDs with
   const realFetch = globalThis.fetch;
   globalThis.fetch = async () => { throw new Error('Must not call providers'); };
   try {
-    const env = { RESEND_API_KEY: 'test' };
+    const env = { RESEND_API_KEY: 'test', LEAD_NOTIFY_EMAIL: 'operator@example.invalid' };
     assert.equal((await invoke(body(), env)).body.code, 'STORAGE_UNAVAILABLE');
     for (const submission_id of ['bad', [randomUUID()], { value: randomUUID() }, null, 123]) {
       assert.equal((await invoke({ ...body(), submission_id }, env)).statusCode, 400);
@@ -92,7 +96,7 @@ test('storage failures return no provider detail or contact data in errors/logs;
   console.error = (...args) => logs.push(args);
   try {
     const data = body();
-    const result = await invoke(data, { SUPABASE_URL: 'https://example.invalid', SUPABASE_SERVICE_ROLE_KEY: 'mock', RESEND_API_KEY: 'mock' });
+    const result = await invoke(data, { SUPABASE_URL: 'https://example.invalid', SUPABASE_SERVICE_ROLE_KEY: 'mock', RESEND_API_KEY: 'mock', LEAD_NOTIFY_EMAIL: 'operator@example.invalid' });
     assert.equal(result.statusCode, 502);
     assert.equal(calls.length, 1);
     assert.ok(!calls[0].includes('resend'));

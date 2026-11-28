@@ -2,14 +2,23 @@
 import { authorized, normalizeStandard } from '../lib/shared-intake.js';
 import { useDatabase } from '../lib/local-database.js';
 import { fetchWithRetry } from '../lib/fetch-retry.js';
+import { addressForLog, clientIp, createRateLimiter } from '../lib/request-ip.js';
 import { randomUUID } from 'node:crypto';
+
+// Anyone can send a wrong bearer, so these lines are capped: at most 30 per 10 minutes.
+const refusalLog = createRateLimiter({ max: 30, windowMs: 10 * 60e3 });
+export const resetIntakeLog = () => refusalLog.reset();
 
 export default async function handler(req, res, env = process.env) {
   useDatabase(env);
   res.setHeader('Cache-Control', 'no-store');
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ ok: false }); }
   if (!env.CRM_INGEST_SECRET || env.CRM_INGEST_SECRET.length < 32) return res.status(503).json({ ok: false, error: 'Intake unavailable' });
-  if (!authorized(req.headers?.authorization, env.CRM_INGEST_SECRET)) return res.status(401).json({ ok: false });
+  if (!authorized(req.headers?.authorization, env.CRM_INGEST_SECRET)) {
+    // Where it came from, never what it sent.
+    if (!refusalLog.hit('intake').limited) console.warn(`[security] intake bearer wrong from ${addressForLog(clientIp(req))}`);
+    return res.status(401).json({ ok: false });
+  }
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) return res.status(503).json({ ok: false, error: 'CRM unavailable' });
   let row;
   let verification = false;

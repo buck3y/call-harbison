@@ -2,8 +2,58 @@
 // On a server it records on this machine (lib/analytics-store.js). With ANALYTICS_STORE=shared, or on Vercel, each
 // event is forwarded to the shared collector at Harbison Standard instead.
 import { createHmac } from 'node:crypto';
-import { clientIp } from '../lib/request-ip.js';
+import { cleanForLog, clientIp, createRateLimiter } from '../lib/request-ip.js';
 import { EVENT_NAMES, getAnalyticsStore, isLocalAnalytics } from '../lib/analytics-store.js';
+import { isCrossSite } from '../lib/request-origin.js';
+
+// Lines an outsider can cause are capped, so the log cannot be flooded: 30 per 10 minutes each.
+const cspLog = createRateLimiter({ max: 30, windowMs: 10 * 60e3 });
+const refusalLog = createRateLimiter({ max: 30, windowMs: 10 * 60e3 });
+export const resetTrackLogs = () => { cspLog.reset(); refusalLog.reset(); };
+
+// ---------- Content-security-policy reports (/csp-report, rewritten to /api/track?csp=1) ----------
+// Browsers post one when the policy blocks something (or, report-only, would have). Two shapes:
+//   report-uri: {"csp-report": {"effective-directive", "violated-directive", "blocked-uri", "document-uri", …}}
+//   report-to:  [{"type": "csp-violation", "body": {"effectiveDirective", "blockedURL", "documentURL", …}}, …]
+// Each becomes one line, "[csp] script-src-elem blocked evil.example on /about": the directive, only the host (or
+// the scheme, or a keyword such as inline) of what was blocked, and only the path of the page. Never a query
+// string. Each value is cut to 100 characters and stripped of control characters.
+const CSP_KEYWORDS = new Set(['inline', 'eval', 'wasm-eval', 'self', 'data', 'blob', 'trusted-types-policy', 'trusted-types-sink']);
+const MAX_REPORTS_PER_POST = 20;
+
+function blockedPart(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return 'unknown';
+  if (CSP_KEYWORDS.has(text.toLowerCase())) return text.toLowerCase();
+  try {
+    const url = new URL(text);
+    return /^(?:https?|wss?):$/.test(url.protocol) ? url.host : url.protocol;
+  } catch {}
+  const scheme = /^([a-z][a-z0-9+.-]{0,30}):/i.exec(text);
+  return scheme ? `${scheme[1].toLowerCase()}:` : 'unknown';
+}
+
+function pagePath(value) {
+  try { return new URL(String(value ?? '')).pathname || '/'; } catch { return 'unknown'; }
+}
+
+export function cspReports(body) {
+  let data = body;
+  if (Buffer.isBuffer(data)) data = data.toString('utf8');
+  if (typeof data === 'string') { try { data = JSON.parse(data); } catch { return []; } }
+  if (Array.isArray(data)) {
+    return data.filter((r) => r && typeof r === 'object' && r.type === 'csp-violation' && r.body && typeof r.body === 'object').map((r) => r.body).slice(0, MAX_REPORTS_PER_POST);
+  }
+  const one = data && typeof data === 'object' ? data['csp-report'] : null;
+  return one && typeof one === 'object' && !Array.isArray(one) ? [one] : [];
+}
+
+export function cspLine(report) {
+  const directive = String(report['effective-directive'] ?? report.effectiveDirective ?? report['violated-directive'] ?? report.violatedDirective ?? '').trim().split(/\s+/)[0] || 'unknown';
+  const blocked = blockedPart(report['blocked-uri'] ?? report.blockedURL ?? report.blockedUri);
+  const page = pagePath(report['document-uri'] ?? report.documentURL ?? report.documentUri);
+  return `[csp] ${cleanForLog(directive, 100) || 'unknown'} blocked ${cleanForLog(blocked, 100) || 'unknown'} on ${cleanForLog(page, 100) || 'unknown'}`;
+}
 
 // Only the checked fields go to the store, which reduces the address and user agent to a hash and three categories.
 function recordLocally(req, res, env, body, path) {
@@ -22,8 +72,19 @@ function recordLocally(req, res, env, body, path) {
 export default async function handler(req, res, env = process.env) {
   res.setHeader('Cache-Control', 'no-store');
   const url = new URL(req.url || '/api/track', 'http://x');
+  // Another website may not post here: it could only pad the statistics, or fill the CSP log with noise.
+  if (req.method === 'POST' && isCrossSite(req, env)) {
+    if (!refusalLog.hit('track').limited) console.warn('[security] cross-site POST to /api/track refused');
+    return res.status(403).json({ ok: false });
+  }
   // Browser CSP report sink (routed from /csp-report in vercel.json without adding a separate function).
   if (url.searchParams.get('csp') === '1') {
+    if (req.method === 'POST') {
+      for (const report of cspReports(req.body)) {
+        if (cspLog.hit('csp').limited) break;
+        console.warn(cspLine(report));
+      }
+    }
     return res.end ? res.status(204).end('') : res.status(204).json({ ok: true });
   }
   if (req.method !== 'POST') return res.status(405).json({ ok: false });

@@ -25,7 +25,7 @@ test('full HQ workflow runs against isolated PostgreSQL with external fetch bloc
  t.after(async()=>{globalThis.fetch=oldFetch;await db.close();});
  const request=async(action,body,{review=true,session=true}={})=>{
   const res={code:200,status(c){this.code=c;return this;},json(b){this.body=b;return this;},setHeader(){}};
-  await hq({method:body?'POST':'GET',url:`/api/hq?action=ops-${action}`,headers:{'x-hq':'1',...(session?{cookie:`hq_session=${makeSession('Jay',env)}`} : {}),...(review?{'x-hq-review':'review-demo'}:{})},body},res,env);return res;
+  await hq({method:body?'POST':'GET',url:`/api/hq?action=ops-${action}`,headers:{'x-hq':'1',...(session?{cookie:`__Host-hq_session=${makeSession('Jay',env)}`} : {}),...(review?{'x-hq-review':'review-demo'}:{})},body},res,env);return res;
  };
  assert.equal((await request('overview',null,{session:false})).code,401);
  for (const action of ['import','review','link','workflow','reconcile']) assert.equal((await request(action,{}, {session:false})).code,401);

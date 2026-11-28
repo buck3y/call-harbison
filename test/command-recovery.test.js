@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import hq,{makeSession} from '../api/hq.js';
-import publicHandler, { leadIpLimiter, leadPhoneLimiter } from '../api/leads.js';
+import publicHandler, { leadIpLimiter, leadPhoneLimiter, resetLeadLimiters } from '../api/leads.js';
 import { installOperationsMock } from '../dev/operations-mock.mjs';
 import { rpc } from '../dev/test-database.mjs';
 const helper=await readFile(new URL('../static/command-recovery.js',import.meta.url),'utf8');
@@ -13,7 +13,7 @@ const mockRes=()=>({code:200,headers:{},status(c){this.code=c;return this;},json
 function storage(){const map=new Map();return {map,getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k)};}
 function locks(){let tail=Promise.resolve();return {request(_name,fn){const result=tail.then(fn);tail=result.catch(()=>{});return result;}};}
 async function fixture(fn){const env={},oldFetch=globalThis.fetch,db=await installOperationsMock(env);env.SELLER_COMMAND_RECOVERY_ENABLED='true';
- const request=async(action,body,{auth=true,csrf=true}={})=>{const res=mockRes();await hq({method:body?'POST':'GET',url:`/api/hq?action=ops-${action}`,headers:{...(csrf?{'x-hq':'1'}:{}),...(auth?{cookie:`hq_session=${makeSession('Synthetic',env)}`}:{})},body},res,env,'protocol');return res;};
+ const request=async(action,body,{auth=true,csrf=true}={})=>{const res=mockRes();await hq({method:body?'POST':'GET',url:`/api/hq?action=ops-${action}`,headers:{...(csrf?{'x-hq':'1'}:{}),...(auth?{cookie:`__Host-hq_session=${makeSession('Synthetic',env)}`}:{})},body},res,env,'protocol');return res;};
  try{await fn({env,db,request});}finally{globalThis.fetch=oldFetch;await db.close();}
 }
 
@@ -43,13 +43,15 @@ function browser(shared,fetcher,sharedLocks=locks()){
  const context={window:{},document:{documentElement:{dataset:{commandPhase:'protocol'}}},localStorage:shared,navigator:{locks:sharedLocks},crypto:{randomUUID},fetch:fetcher,AbortSignal,URLSearchParams,setTimeout,location:{pathname:'/'},Map,console};
  vm.runInNewContext(helper,context);return context;
 }
+// The fake browsers below send no client address, so every post would share one rate-limit bucket; each call
+// starts with fresh limiters because this file tests recovery, not the limits.
 const payload={address:'123 Synthetic Road',name:'Synthetic Public',phone:'6615550101',email:'public@example.invalid',form_type:'options',consent_response:true};
 
 test('cross-path recovery retains the original inquiry; explicit new buyer/investor/value inquiries have no seller capability',()=>fixture(async({db,env})=>{
- env.SELLER_OPERATIONS_ENABLED='false';env.LEAD_RELIABILITY_ENABLED='true';env.RESEND_API_KEY='synthetic';
+ env.SELLER_OPERATIONS_ENABLED='false';env.LEAD_RELIABILITY_ENABLED='true';env.RESEND_API_KEY='synthetic';env.LEAD_NOTIFY_EMAIL='synthetic@example.invalid';
  await db.exec("update lead_reliability_control set enabled=true,worker_until=now()+interval '5 minutes'");
  let lose=true,commands=0;
- const transport=async(url,options={})=>{const body=options.body?JSON.parse(options.body):{};const res=mockRes();await publicHandler({method:options.method||'GET',url,body,headers:{}},res,env,'protocol');if(body.reliability_version){commands++;if(lose){lose=false;throw new Error('Lost reply');}}return Response.json(res.body,{status:res.code});};
+ const transport=async(url,options={})=>{const body=options.body?JSON.parse(options.body):{};const res=mockRes();resetLeadLimiters();await publicHandler({method:options.method||'GET',url,body,headers:{}},res,env,'protocol');if(body.reliability_version){commands++;if(lose){lose=false;throw new Error('Lost reply');}}return Response.json(res.body,{status:res.code});};
  const shared=storage();leadIpLimiter.reset();leadPhoneLimiter.reset();
  let page=browser(shared,transport);await assert.rejects(page.window.HBHCommands.submit(payload),/Lost reply/);
  page=browser(shared,transport);page.location.pathname='/investors';
@@ -70,10 +72,10 @@ test('cross-path recovery retains the original inquiry; explicit new buyer/inves
  assert.equal(commands,4);
 }));
 test('fresh browser restart recovers lost inquiry and details replies through actual SQL route; storage stays opaque',()=>fixture(async({db,env})=>{
- env.SELLER_OPERATIONS_ENABLED='false';env.LEAD_RELIABILITY_ENABLED='true';env.RESEND_API_KEY='synthetic';
+ env.SELLER_OPERATIONS_ENABLED='false';env.LEAD_RELIABILITY_ENABLED='true';env.RESEND_API_KEY='synthetic';env.LEAD_NOTIFY_EMAIL='synthetic@example.invalid';
  await db.exec("update lead_reliability_control set enabled=true,worker_until=now()+interval '5 minutes'");
  let lose=true,commands=0;
- const transport=async(url,options={})=>{const body=options.body?JSON.parse(options.body):{};const res=mockRes();await publicHandler({method:options.method||'GET',url,body,headers:{}},res,env,'protocol');if(body.reliability_version){commands++;if(lose){lose=false;throw new Error('Lost final reply');}}return Response.json(res.body,{status:res.code});};
+ const transport=async(url,options={})=>{const body=options.body?JSON.parse(options.body):{};const res=mockRes();resetLeadLimiters();await publicHandler({method:options.method||'GET',url,body,headers:{}},res,env,'protocol');if(body.reliability_version){commands++;if(lose){lose=false;throw new Error('Lost final reply');}}return Response.json(res.body,{status:res.code});};
  const shared=storage();let page=browser(shared,transport);
  await assert.rejects(page.window.HBHCommands.submit(payload),/Lost final/);
  const original=shared.getItem('hbh_reliable_inquiry');assert.ok(original);assert.ok(!original.includes('Synthetic'));

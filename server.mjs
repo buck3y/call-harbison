@@ -2,19 +2,23 @@
 // It serves ./dist the way Vercel does (clean URLs plus the redirects, rewrites and headers in vercel.json)
 // and runs the API handlers. It does not build: run `npm run build` first.
 // Put Caddy or nginx in front for HTTPS and compression. See docs/VPS.md.
+// With HQ_HOST set, /hq and /api/hq are served only on that host name, and only they are (see "HQ on its own host").
 import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import leadsHandler from './api/leads.js';
-import hqHandler from './api/hq.js';
+import leadsHandler, { notificationRecipients } from './api/leads.js';
+import hqHandler, { noteHqSetup } from './api/hq.js';
 import intakeHandler from './api/intake.js';
 import trackHandler from './api/track.js';
 import mcpHandler from './api/mcp.js';
 import { flushAnalytics } from './lib/analytics-store.js';
 import { closeLocalDatabase, databaseMode, openLocalDatabase, startDailyBackups, useDatabase } from './lib/local-database.js';
 import { applyPublicPolicy } from './lib/csp.js';
+import { hostName, hqHost } from './lib/hq-url.js';
+import { secretNotes } from './lib/secrets.js';
+import { resolveGtmId, trackerIds } from './site.config.mjs';
 
 // Writes the site analytics kept on this server to disk. Called before the process exits.
 export { flushAnalytics };
@@ -92,6 +96,33 @@ export function pinClientIp(req, trust = 'loopback') {
   req.headers['x-real-ip'] = ip;
   return ip;
 }
+
+// ---------- What the settings leave off, said once at start ----------
+
+// Plain lines naming settings, never their values. HQ's own reason for being off is logged by noteHqSetup().
+export function startupNotes(env = process.env) {
+  const notes = [...secretNotes(env)];
+  const missing = [...(env.RESEND_API_KEY ? [] : ['RESEND_API_KEY']), ...(notificationRecipients(env).length ? [] : ['LEAD_NOTIFY_EMAIL'])];
+  if (missing.length) notes.push(`New-lead e-mail is off: ${missing.join(' and ')} ${missing.length > 1 ? 'are' : 'is'} not set. Leads are still stored and shown in HQ.`);
+  // The queued delivery protocol stores an inquiry only together with at least one alert for staff (its SQL refuses
+  // an empty list), so with it on and no channel every inquiry would be refused.
+  const staffChannel = !missing.length || Boolean(env.LEAD_WEBHOOK_URL) || Boolean(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM && env.LEAD_ALERT_SMS);
+  if (env.LEAD_RELIABILITY_ENABLED === 'true' && !staffChannel) notes.push('LEAD_RELIABILITY_ENABLED is on but no staff alert is set up (LEAD_NOTIFY_EMAIL with RESEND_API_KEY, LEAD_WEBHOOK_URL, or LEAD_ALERT_SMS with Twilio): that protocol refuses every inquiry it cannot alert someone about. Set one before switching it on.');
+  const { gaId, metricoolHash } = trackerIds(env);
+  const trackers = [gaId && 'GA_MEASUREMENT_ID', resolveGtmId(env.GTM_ID) && 'GTM_ID', metricoolHash && 'METRICOOL_HASH'].filter(Boolean);
+  const hq = hqHost(env);
+  if (trackers.length && !hq) notes.push(`The public pages load outside scripts (${trackers.join(', ')}) on the same address as HQ. Set HQ_HOST (for example hq.callharbison.com) so HQ has an address of its own that those scripts cannot reach.`);
+  if (hq) notes.push(`HQ is served only at https://${hq}/hq; /hq and /api/hq answer 404 on every other address.`);
+  return notes;
+}
+
+// ---------- HQ on its own host name (HQ_HOST, optional) ----------
+
+// On HQ's host only HQ itself and the files it loads, never a public page: those can load outside scripts, which
+// would then run on HQ's origin. These are the file types HQ uses; HTML is served only under /hq.
+const HQ_HOST_FILES = new Set(['.js', '.css', '.woff2', '.woff', '.svg', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.ico']);
+export const isHqPath = (pathname) => pathname === '/hq' || pathname === '/hq.html' || pathname.startsWith('/hq/');
+const requestHost = (req) => hostName(req.headers?.host);
 
 // ---------- Responses ----------
 
@@ -174,17 +205,26 @@ export function createHandler({
   api = API,
   trustProxy = process.env.TRUST_PROXY || 'loopback',
   log = console.log,
+  hqHostName = hqHost(process.env),
 } = {}) {
   const distRoot = resolve(dist);
+  const hqOnly = hostName(hqHostName);
 
-  async function notFound(req, res) {
+  // On HQ's host the 404 is a bare page: the site's 404.html is a public page, with its outside scripts.
+  async function notFound(req, res, { bare = false } = {}) {
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     if (!res.hasHeader('Cache-Control')) res.setHeader('Cache-Control', DEFAULT_CACHE);
     let page = '<!doctype html><title>Not found</title><h1>Not found</h1>';
-    try { page = await readFile(join(distRoot, '404.html')); } catch {}
+    if (!bare) { try { page = await readFile(join(distRoot, '404.html')); } catch {} }
     res.end(req.method === 'HEAD' ? undefined : page);
   }
+  const apiNotFound = (res) => {
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.end(JSON.stringify({ ok: false, error: 'Not found' }));
+  };
 
   async function respond(req, res) {
     const rawUrl = String(req.url || '/');
@@ -206,6 +246,21 @@ export function createHandler({
     if (pathname === '/healthz') return plain(res, 200, 'ok');
     if (/\/{2,}/.test(rawPath)) return redirect(res, 308, rawPath.replace(/\/{2,}/g, '/') + search);
 
+    // HQ_HOST set: HQ only on its host, and on its host only HQ (with /healthz above, and /csp-report, which only
+    // ever reaches the CSP log). Checked before any redirect, so no public page is reachable from there.
+    const onHqHost = Boolean(hqOnly) && requestHost(req) === hqOnly;
+    let filesOnly = false;
+    if (hqOnly && onHqHost) {
+      if (pathname === '/') return redirect(res, 307, '/hq');
+      if (!isHqPath(pathname) && pathname !== '/api/hq' && pathname !== '/csp-report') {
+        if (pathname === '/api' || pathname.startsWith('/api/')) return apiNotFound(res);
+        if (!HQ_HOST_FILES.has(extname(pathname).toLowerCase())) return notFound(req, res, { bare: true });
+        filesOnly = true;
+      }
+    } else if (hqOnly && (isHqPath(pathname) || pathname === '/api/hq')) {
+      return pathname === '/api/hq' ? apiNotFound(res) : notFound(req, res);
+    }
+
     const hop = routing.redirects.find((r) => r.match.test(pathname));
     if (hop) return redirect(res, hop.status, hop.destination + (hop.destination.includes('?') ? search.replace(/^\?/, '&') : search));
 
@@ -224,15 +279,14 @@ export function createHandler({
       pinClientIp(req, trustProxy);
       req.url = route + routeSearch;
       await runApi(handler, req, res);
-      log(`${req.method} ${route} ${res.statusCode} ${Date.now() - started}ms`);
+      // HQ's action is the one part of a query string worth logging ("POST /api/hq?action=login 401 12ms"); the
+      // rest can hold a search for a name or a phone number, so it never is.
+      const action = route === '/api/hq' ? new URLSearchParams(routeSearch).get('action') : null;
+      const shown = action && /^[a-z-]{1,30}$/.test(action) ? `?action=${action}` : '';
+      log(`${req.method} ${route}${shown} ${res.statusCode} ${Date.now() - started}ms`);
       return undefined;
     }
-    if (route === '/api' || route.startsWith('/api/')) {
-      res.statusCode = 404;
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-store');
-      return res.end(JSON.stringify({ ok: false, error: 'Not found' }));
-    }
+    if (route === '/api' || route.startsWith('/api/')) return apiNotFound(res);
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.setHeader('Allow', 'GET, HEAD');
@@ -243,10 +297,12 @@ export function createHandler({
       return redirect(res, 308, (clean.length > 1 ? clean.replace(/\/$/, '') : '/') + search);
     }
     if (routing.trailingSlash === false && rawPath.length > 1 && rawPath.endsWith('/')) return redirect(res, 308, rawPath.replace(/\/+$/, '') + search);
-    if (route.split('/').some((part) => part.startsWith('.') && part !== '.well-known')) return notFound(req, res);
+    if (route.split('/').some((part) => part.startsWith('.') && part !== '.well-known')) return notFound(req, res, { bare: onHqHost });
 
     const hit = await findFile(distRoot, route);
-    if (!hit) return notFound(req, res);
+    // On HQ's host a name like /x.css could still resolve to x.css.html: only the file types HQ uses go out.
+    if (filesOnly && hit && !HQ_HOST_FILES.has(extname(hit.file).toLowerCase())) return notFound(req, res, { bare: true });
+    if (!hit) return notFound(req, res, { bare: onHqHost });
     const etag = `W/"${hit.info.size.toString(16)}-${Math.floor(hit.info.mtimeMs).toString(16)}"`;
     res.setHeader('Content-Type', TYPES[extname(hit.file).toLowerCase()] || 'application/octet-stream');
     res.setHeader('ETag', etag);
@@ -255,7 +311,7 @@ export function createHandler({
     if (req.headers['if-none-match'] === etag) { res.statusCode = 304; return res.end(); }
     if (req.method === 'HEAD') { res.setHeader('Content-Length', hit.info.size); return res.end(); }
     let body;
-    try { body = await readFile(hit.file); } catch { return notFound(req, res); } // the file went away mid-request (a build swapped ./dist)
+    try { body = await readFile(hit.file); } catch { return notFound(req, res, { bare: onHqHost }); } // the file went away mid-request (a build swapped ./dist)
     res.setHeader('Content-Length', body.length);
     return res.end(body);
   }
@@ -298,6 +354,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     }
     startDailyBackups();
   }
+  // What is switched off, and why, said once. Names settings, never their values.
+  noteHqSetup(process.env, console.warn);
+  for (const note of startupNotes(process.env)) console.warn(`[setup] ${note}`);
   const server = createServer(createHandler({ dist }));
   server.listen(port, host, () => console.log(`Call Harbison is serving ./dist on http://${host}:${port}`));
 

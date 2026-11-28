@@ -1,14 +1,15 @@
 // Local preview: builds the site, serves ./dist with clean URLs, and runs /api/leads + /api/hq + /api/intake + /api/track. Run: npm run dev
-// Leads and HQ use the site's own database in ./.data/db (set HQ_PASSWORD to sign in to /hq).
+// Leads and HQ use the site's own database in ./.data/db (set HQ_PASSWORD, 12 characters or more, to sign in to /hq).
 // Add `-- --mock` to try HQ with sample data and password "demo" instead (nothing is kept).
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { execSync } from 'node:child_process';
 import handler from './api/leads.js';
-import hqHandler from './api/hq.js';
+import hqHandler, { noteHqSetup } from './api/hq.js';
 import intakeHandler from './api/intake.js';
 import trackHandler from './api/track.js';
+import { startupNotes } from './server.mjs';
 import { family } from './src/family.mjs';
 import { flushAnalytics } from './lib/analytics-store.js';
 import { closeLocalDatabase, databaseMode, openLocalDatabase, useDatabase } from './lib/local-database.js';
@@ -29,6 +30,10 @@ if (process.argv.includes('--mock')) {
   process.on('SIGINT', stop);
   process.on('SIGTERM', stop);
 }
+
+// The same notes the server prints at start: what is switched off, and which setting would switch it on.
+noteHqSetup(process.env, console.warn);
+for (const note of startupNotes(process.env)) console.warn(`[setup] ${note}`);
 
 execSync('node build.mjs', { stdio: 'inherit' });
 

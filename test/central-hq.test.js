@@ -5,7 +5,7 @@ import { demoLeadReason } from '../lib/demo-leads.js';
 import { db, installMockSupabase } from '../dev/mock-supabase.mjs';
 
 const env = { HQ_PASSWORD: 'test password', SUPABASE_URL: 'https://example.test', SUPABASE_SERVICE_ROLE_KEY: 'test key', CRM_INGEST_SECRET: 'test-shared-secret-longer-than-32-characters' };
-const headers = () => ({ cookie: `hq_session=${makeSession('Test Admin', env)}`, 'x-hq': '1' });
+const headers = () => ({ cookie: `__Host-hq_session=${makeSession('Test Admin', env)}`, 'x-hq': '1' });
 async function call(req) {
   const res = { statusCode: 200, body: null, headers: {} };
   res.status = (code) => { res.statusCode = code; return res; };

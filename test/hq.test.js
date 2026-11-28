@@ -41,15 +41,17 @@ test('edits are whitelisted and validated', () => {
   assert.equal(cleanPatch({ next_followup: '' }).patch.next_followup, null);
 });
 
-test('unconfigured HQ explains what to set', async () => {
+// Changed in the security hardening: the reason (naming the setting) goes to the server log, not to the caller.
+test('unconfigured HQ answers one generic sentence that names no setting', async () => {
   const res = await call({ method: 'GET', url: '/api/hq?action=me' }, {});
   assert.equal(res.statusCode, 503);
-  assert.match(res.body.error, /HQ_PASSWORD/);
+  assert.equal(res.body.error, 'HQ is not available on this server yet.');
+  assert.doesNotMatch(res.body.error, /HQ_PASSWORD|SUPABASE/);
 });
 
 test('data endpoints require a session; writes also require the X-HQ header', async () => {
   assert.equal((await call({ method: 'GET', url: '/api/hq?action=leads' })).statusCode, 401);
-  const cookie = `hq_session=${makeSession('Nate', env)}`;
+  const cookie = `__Host-hq_session=${makeSession('Nate', env)}`;
   const noHeader = await call({ method: 'PATCH', url: '/api/hq?action=lead&id=00000000-0000-4000-8000-000000000000', headers: { cookie }, body: { status: 'qualified' } });
   assert.equal(noHeader.statusCode, 403);
   const badId = await call({ method: 'GET', url: '/api/hq?action=lead&id=1;drop', headers: { cookie } });

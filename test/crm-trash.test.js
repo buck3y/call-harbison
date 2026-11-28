@@ -14,7 +14,7 @@ function callApi(req, env) {
 
 const env = { HQ_PASSWORD: 'test-password-123' };
 installMockSupabase(env);
-const cookie = `hq_session=${makeSession('Nate', env)}`;
+const cookie = `__Host-hq_session=${makeSession('Nate', env)}`;
 const read = { cookie };
 const write = { cookie, 'x-hq': '1' };
 const listIds = async (view) => (await callApi({ method: 'GET', url: `/api/hq?action=leads&view=${view}&limit=200`, headers: read }, env)).body.leads.map((l) => l.id);

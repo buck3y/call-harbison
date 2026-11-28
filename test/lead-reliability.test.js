@@ -2,14 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import handler,{readDetailsToken,makeDetailsToken} from '../api/leads.js';
+import handler,{readDetailsToken,makeDetailsToken,resetLeadLimiters} from '../api/leads.js';
 import { createTestDatabase,rpc } from '../dev/test-database.mjs';
 import { digest } from '../lib/lead-reliability.js';
 import { processLeadAlerts,publicAlertSender } from '../lib/lead-alerts.js';
 const env={SUPABASE_URL:'https://synthetic.invalid',SUPABASE_SERVICE_ROLE_KEY:'synthetic',HQ_SESSION_SECRET:'synthetic-only',LEAD_RELIABILITY_ENABLED:'true',RESEND_API_KEY:'synthetic',LEAD_NOTIFY_EMAIL:'one@example.invalid,two@example.invalid'};
 const body=()=>({reliability_version:1,submission_id:randomUUID(),recovery_key:randomUUID(),address:'123 Synthetic St, Test CA',name:'Synthetic Person',phone:'6615550101',email:'person@example.invalid',form_type:'options',consent_response:true});
 const response=()=>({statusCode:200,setHeader(){},status(n){this.statusCode=n;return this;},json(v){this.body=v;return this;}});
-async function invoke(data,config=env,method='POST',url='/api/leads'){const res=response();await handler({method,url,body:data,headers:{}},res,config,'protocol');return res;}
+// These calls carry no client address, so they all share one rate-limit bucket; this file tests the protocol, not
+// the limits, so every call starts with fresh ones.
+async function invoke(data,config=env,method='POST',url='/api/leads'){resetLeadLimiters();const res=response();await handler({method,url,body:data,headers:{}},res,config,'protocol');return res;}
 async function fixture(fn){const db=await createTestDatabase(),original=globalThis.fetch;const calls=[];
  await db.exec("update lead_reliability_control set enabled=true,worker_until=now()+interval '5 minutes'");
  const fetcher=async(url,init)=>{
@@ -182,7 +184,7 @@ test('configuration mismatch quarantines only affected job, drains other channel
 }));
 
 test('default source phase cannot admit reliable commands even with accidental runtime true; stored replay still resolves',()=>fixture(async(db)=>{
- const b=body(),r=response();await handler({method:'POST',url:'/api/leads',headers:{},body:b},r,env);
+ const b=body(),r=response();resetLeadLimiters();await handler({method:'POST',url:'/api/leads',headers:{},body:b},r,env);
  assert.equal(r.statusCode,503);assert.equal((await db.query('select count(*)::int n from leads')).rows[0].n,0);
- await invoke(b);const replay=response();await handler({method:'POST',url:'/api/leads',headers:{},body:b},replay,env);assert.equal(replay.statusCode,200);assert.equal(replay.body.duplicate,true);
+ await invoke(b);const replay=response();resetLeadLimiters();await handler({method:'POST',url:'/api/leads',headers:{},body:b},replay,env);assert.equal(replay.statusCode,200);assert.equal(replay.body.duplicate,true);
 }));

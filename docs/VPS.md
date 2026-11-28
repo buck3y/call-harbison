@@ -77,9 +77,10 @@ install -m 640 -o root -g callharbison /srv/call-harbison/repo/.env.example /etc
 nano /etc/call-harbison.env
 ```
 
-Two settings are needed: `SITE_URL` and `HQ_PASSWORD` (long and unique; changing it later signs everyone out). For
-email alerts, also fill in `RESEND_API_KEY`, `LEAD_NOTIFY_EMAIL` and `LEAD_FROM_EMAIL`. Everything else in the file is
-optional and explained there. One `KEY=value` per line, no spaces around `=`, and double quotes around a value that
+Two settings are needed: `SITE_URL` and `HQ_PASSWORD` (at least 12 characters, or HQ stays off; make one with
+`openssl rand -base64 24`; changing it later signs everyone out). For email alerts, also fill in `RESEND_API_KEY`,
+`LEAD_NOTIFY_EMAIL` (who gets them; there is no default, so left empty nobody is emailed) and `LEAD_FROM_EMAIL`.
+Everything else in the file is optional and explained there. One `KEY=value` per line, no spaces around `=`, and double quotes around a value that
 contains spaces.
 
 **5. Install the service, the Caddy config and the deploy script.** The deploy script runs as root, so root keeps
@@ -272,14 +273,21 @@ the server; earlier history stays at Harbison Standard.
 | Setting | Needed? | What it does |
 | --- | --- | --- |
 | `SITE_URL` | yes | The site's address, for links, the sitemap and search engines |
-| `HQ_PASSWORD` | yes | The password for `/hq` |
-| `RESEND_API_KEY`, `LEAD_NOTIFY_EMAIL`, `LEAD_FROM_EMAIL` | for email alerts | Email for every new lead (Resend account) |
+| `HQ_PASSWORD` | yes | The password for `/hq`. At least 12 characters; with a shorter one HQ stays off |
+| `RESEND_API_KEY`, `LEAD_NOTIFY_EMAIL`, `LEAD_FROM_EMAIL` | for email alerts | Email for every new lead (Resend account). `LEAD_NOTIFY_EMAIL` has no default: empty means nobody is emailed |
 | `GA_MEASUREMENT_ID`, `METRICOOL_HASH`, `GTM_ID` | no | Google Analytics, Metricool, Tag Manager: loaded only when set, after the visitor accepts |
+| `HQ_HOST` | no | HQ on an address of its own (see Security, "The admin panel") |
+| `MCP_TOKEN`, `MCP_CONTACT_DETAILS` | no | The read-only connection for an AI assistant (docs/MCP.md). Off until a token is set |
+| `LEAD_WEBHOOK_URL`, `LEAD_WEBHOOK_SECRET` | no | Send each lead to another service; with the secret each post is signed (`X-Call-Harbison-Signature: sha256=…`) so the receiver can check it came from this site |
+| `LEAD_ACK_DAILY_MAX` | no | If acknowledgement texts to sellers are ever switched on: at most this many a day (30) |
 | `PORT`, `HOST`, `TRUST_PROXY` | no | Where the app listens and which proxy it believes |
-| `HQ_SESSION_SECRET` | no | Your own key for HQ sign-ins instead of the generated `signing-key` |
+| `HQ_SESSION_SECRET` | no | Your own key for HQ sign-ins instead of the generated `signing-key`. At least 32 characters; a shorter one is ignored |
 | `DATABASE_DIR`, `ANALYTICS_DIR` | no | Keep the database or the statistics somewhere other than the state folder |
 
 To use a hosted Supabase database instead of the server's own, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+
+At start the site says once, in its log, what the settings leave switched off and why (lines beginning `[setup]` and
+`[hq]`): `journalctl -u call-harbison -n 30`.
 
 ## Security
 
@@ -371,6 +379,13 @@ Use a long generated password, kept in your password manager:
 ```bash
 openssl rand -base64 24
 ```
+
+**If sign-in says "Too many attempts".** Eight wrong passwords from one address shut that address out for 15
+minutes. Forty from all addresses together shut out every address that has not signed in successfully in the last 30
+days, so someone guessing from many places gets nowhere, and cannot keep you out from the places you normally sign
+in. If you are shut out anyway and it was not you, somebody is guessing: `journalctl -u call-harbison | grep
+'\[security\]'` shows from where. `sudo systemctl restart call-harbison` clears the count at once (it also clears
+the list of places you signed in from). Sessions already signed in keep working throughout.
 
 Once Google Analytics, Tag Manager or Metricool is switched on, those outside scripts run on the same address as
 `/hq`. Give HQ its own address, so they cannot reach it:

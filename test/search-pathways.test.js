@@ -28,7 +28,8 @@ test('all inquiry intents require response consent, keep marketing separate and 
 });
 
 test('legacy address-free retry stores intent once, notifies once, and cannot receive seller details', async () => {
-  const original = globalThis.fetch, env = { RESEND_API_KEY: 'synthetic', HQ_PASSWORD: 'synthetic' };
+  // LEAD_NOTIFY_EMAIL: there is no default recipient any more.
+  const original = globalThis.fetch, env = { RESEND_API_KEY: 'synthetic', LEAD_NOTIFY_EMAIL: 'synthetic@example.invalid', HQ_PASSWORD: 'synthetic' };
   installMockSupabase(env); const databaseFetch = globalThis.fetch;
   let alerts = [];
   globalThis.fetch = async (url, init) => {

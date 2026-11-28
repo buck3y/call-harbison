@@ -17,18 +17,24 @@ test('parseLead validates required fields', () => {
   assert.deepEqual(parseLead({ address: 'x', name: '', phone: '123', email: 'bad' }).errors, ['address', 'name', 'phone', 'email']);
 });
 
-test('email alerts target both staff addresses when recipients are not overridden', async () => {
+// Changed in the security hardening: there is no built-in recipient any more. Only LEAD_NOTIFY_EMAIL names one.
+test('email alerts go only to LEAD_NOTIFY_EMAIL, and nowhere without it', async () => {
   const original = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, body: JSON.parse(options.body) });
     return { ok: true };
   };
+  const err = console.error; console.error = () => {};
   try {
-    const result = await deliver(parseLead(valid).lead, { RESEND_API_KEY: 'test-key' });
+    const result = await deliver(parseLead(valid).lead, { RESEND_API_KEY: 'test-key', LEAD_NOTIFY_EMAIL: 'one@example.invalid, two@example.invalid' });
     assert.equal(result.ok, true);
-    assert.deepEqual(calls[0].body.to, ['nate85.realtor@gmail.com', 'coaiebay@gmail.com']);
-  } finally { globalThis.fetch = original; }
+    assert.deepEqual(calls[0].body.to, ['one@example.invalid', 'two@example.invalid']);
+    calls.length = 0;
+    const none = await deliver(parseLead(valid).lead, { RESEND_API_KEY: 'test-key' });
+    assert.equal(calls.length, 0, 'no request to the mail service');
+    assert.equal(none.ok, false, 'with no database either, nothing stored it, so it is not reported as delivered');
+  } finally { globalThis.fetch = original; console.error = err; }
 });
 
 test('failed CRM storage stops notifications and cannot report success', async () => {

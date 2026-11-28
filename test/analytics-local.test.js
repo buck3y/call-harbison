@@ -22,7 +22,7 @@ const post = async (body, env, headers = {}) => {
   await track({ method: 'POST', headers: { 'x-real-ip': '192.0.2.8', 'user-agent': IPHONE, ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) }, res, env);
   return res;
 };
-const get = async (url, env, headers = { cookie: `hq_session=${makeSession('Test Admin', env)}` }) => {
+const get = async (url, env, headers = { cookie: `__Host-hq_session=${makeSession('Test Admin', env)}` }) => {
   const res = response();
   await hq({ method: 'GET', url, headers }, res, env);
   return res;

@@ -4,16 +4,19 @@ import { useDatabase } from '../lib/local-database.js';
 // Delivers each lead to whichever destinations are configured via environment variables:
 //   the site's own database (lib/local-database.js, the default on a server) -> row in `leads` table
 //   or SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY                               -> the same row in Supabase
-//   RESEND_API_KEY + LEAD_NOTIFY_EMAIL (+ optional LEAD_FROM_EMAIL)  -> email alert
-//   LEAD_WEBHOOK_URL                                                 -> JSON POST (Zapier, Make, GoHighLevel, etc.)
+//   RESEND_API_KEY + LEAD_NOTIFY_EMAIL (+ optional LEAD_FROM_EMAIL)  -> email alert (both needed: there is no default recipient)
+//   LEAD_WEBHOOK_URL (+ optional LEAD_WEBHOOK_SECRET to sign it)     -> JSON POST (Zapier, Make, GoHighLevel, etc.)
 //   TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM             -> instant text to the lead (+ LEAD_ALERT_SMS for staff)
 // A second request type, { kind: 'details' }, adds the optional thank-you-page answers using a signed token.
 // A configured HQ database must accept the lead before the visitor sees success.
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { clientIp, createRateLimiter } from '../lib/request-ip.js';
+import { addressForLog, clientIp, createRateLimiter, rateKey } from '../lib/request-ip.js';
 import { fetchWithRetry } from '../lib/fetch-retry.js';
 import { reliabilityRpc, digest, uuid, confirmedCommand } from '../lib/lead-reliability.js';
-import { alertIntents } from '../lib/lead-alerts.js';
+import { alertIntents, takeAckSlot, webhookHeaders } from '../lib/lead-alerts.js';
+import { keyFor, PURPOSE } from '../lib/secrets.js';
+import { isCrossSite } from '../lib/request-origin.js';
+import { hqUrl } from '../lib/hq-url.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const safeFailure = (channel, err) => ({ channel, reason: `${channel} delivery failed`, code: err?.code === 'SUBMISSION_CONFLICT' ? 'SUBMISSION_CONFLICT' : 'DELIVERY_FAILED' });
@@ -24,8 +27,16 @@ const DETAILS_TTL_MS = 6 * 3600e3;
 // Fields added for the family-transition funnel. Kept separate so an un-migrated database still gets the core lead.
 export const LEGACY_FIELDS = ['address', 'name', 'phone', 'email', 'situation', 'timeline', 'source', 'utm_source', 'utm_medium', 'utm_campaign'];
 
-export const leadIpLimiter = createRateLimiter({ max: 6, windowMs: 10 * 60e3 });
-export const leadPhoneLimiter = createRateLimiter({ max: 3, windowMs: 10 * 60e3 });
+// A full table drops the oldest bucket rather than make newcomers share one: a real seller arriving during a flood
+// must not be turned away with it (lib/request-ip.js).
+export const leadIpLimiter = createRateLimiter({ max: 6, windowMs: 10 * 60e3, whenFull: 'evict' });
+export const leadPhoneLimiter = createRateLimiter({ max: 3, windowMs: 10 * 60e3, whenFull: 'evict' });
+// Every submission sent from another website shares this one bucket, on top of the limits above. Such a post is
+// not refused (a visitor reading the site through a translation proxy is a real lead with a foreign Origin), but
+// another site cannot use its visitors' browsers to spread a flood over many addresses.
+export const CROSS_SITE_MAX = 5;
+export const leadCrossSiteLimiter = createRateLimiter({ max: CROSS_SITE_MAX, windowMs: 10 * 60e3 });
+export const resetLeadLimiters = () => { leadIpLimiter.reset(); leadPhoneLimiter.reset(); leadCrossSiteLimiter.reset(); };
 
 const clean = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -33,23 +44,21 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 const yes = (v) => v === true || v === 'yes' || v === 'on' || v === 'true';
 
 // ---------- Signed thank-you details token ----------
-const detailsSecret = (env) => env.HQ_SESSION_SECRET || env.CRM_INGEST_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || env.RESEND_API_KEY || env.LEAD_WEBHOOK_URL || '';
-const signDetails = (payload, secret) => createHmac('sha256', `lead-details|${secret}`).update(payload).digest('base64url');
+// Signed with the details key from lib/secrets.js. There is always a key (at worst one made at start), so a
+// token is always required and always checked.
+const signDetails = (payload, env) => createHmac('sha256', keyFor(env, PURPOSE.details)).update(payload).digest('base64url');
 
 export function makeDetailsToken({ id, phone, address, details_revision, details_expires_at }, env = process.env, now = Date.now()) {
   if (!address) return ''; // Address-free inquiries never receive seller-detail capabilities.
-  const secret = detailsSecret(env);
-  if (!secret) return '';
   const payload = Buffer.from(JSON.stringify({ id: id || null, phone, address, ...(details_revision === undefined ? {} : { details_revision }), exp: details_expires_at ?? now + DETAILS_TTL_MS })).toString('base64url');
-  return `${payload}.${signDetails(payload, secret)}`;
+  return `${payload}.${signDetails(payload, env)}`;
 }
 
 export function readDetailsToken(token, env = process.env, now = Date.now()) {
-  const secret = detailsSecret(env);
-  if (!secret || typeof token !== 'string') return null;
+  if (typeof token !== 'string') return null;
   const [payload, sig] = token.split('.');
   if (!payload || !sig) return null;
-  const expected = signDetails(payload, secret);
+  const expected = signDetails(payload, env);
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
@@ -152,18 +161,20 @@ const e164 = (p) => {
   return d.length === 10 ? `+1${d}` : d.length === 11 && d[0] === '1' ? `+${d}` : null;
 };
 
+// Only LEAD_NOTIFY_EMAIL names who gets new-lead e-mail. Unset, nobody does (server.mjs says so at start); the
+// lead is still stored and shown in HQ.
 export const notificationRecipients = (env) => [...new Set(
-  (env.LEAD_NOTIFY_EMAIL || 'nate85.realtor@gmail.com,coaiebay@gmail.com')
+  String(env.LEAD_NOTIFY_EMAIL || '')
     .split(',').map((value) => value.trim()).filter(Boolean)
 )];
+const emailConfigured = (env) => Boolean(env.RESEND_API_KEY) && notificationRecipients(env).length > 0;
 
 async function sendEmail(lead, env) {
   const rows = [...Object.entries(lead), ...(wantsSpanish(lead) ? [['language', 'Spanish: please reply in Spanish']] : [])]
     .filter(([k, v]) => v && k !== 'id')
     .map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#62717a">${escapeHtml(k)}</td><td style="padding:4px 0"><strong>${escapeHtml(v)}</strong></td></tr>`)
     .join('');
-  const siteBase = (env.SITE_URL || 'https://www.callharbison.com').replace(/\/$/, '');
-  const hqLink = lead.id ? ` · <a href="${escapeHtml(`${siteBase}/hq?lead=${encodeURIComponent(lead.id)}`)}">Open in Harbison HQ →</a>` : '';
+  const hqLink = lead.id ? ` · <a href="${escapeHtml(hqUrl(env, lead.id))}">Open in Harbison HQ →</a>` : '';
   const res = await fetchWithRetry('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', ...(lead.id ? { 'Idempotency-Key': `lead-${lead.id}` } : {}) },
@@ -242,7 +253,7 @@ async function sendSms(to, body, env) {
 async function textLeadAndTeam(lead, env) {
   const jobs = [];
   const to = e164(lead.phone);
-  if (env.LEAD_ACK_ENABLED === 'true' && to && lead.contact_pref !== 'Email' && lead.consent_response) {
+  if (env.LEAD_ACK_ENABLED === 'true' && to && lead.contact_pref !== 'Email' && lead.consent_response && takeAckSlot(env)) {
     jobs.push(sendSms(to, ACK_SMS[wantsSpanish(lead) ? 'es' : 'en'], env));
   }
   if (env.LEAD_ALERT_SMS) {
@@ -253,10 +264,11 @@ async function textLeadAndTeam(lead, env) {
 }
 
 async function postWebhook(lead, env) {
+  const body = JSON.stringify({ ...lead, submitted_at: new Date().toISOString() });
   const res = await fetchWithRetry(env.LEAD_WEBHOOK_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...lead, submitted_at: new Date().toISOString() }),
+    headers: webhookHeaders(body, env),
+    body,
   }, { retries: 0 });
   if (!res.ok) throw new Error(`Webhook ${res.status}`);
 }
@@ -286,7 +298,7 @@ export async function deliver(lead, env = process.env) {
     return { ok: true, delivered, failures, notification: 'queued' };
   }
   const tasks = [];
-  if (env.RESEND_API_KEY) tasks.push(['email', sendEmail(lead, env)]);
+  if (emailConfigured(env)) tasks.push(['email', sendEmail(lead, env)]);
   if (env.LEAD_WEBHOOK_URL) tasks.push(['webhook', postWebhook(lead, env)]);
   // A customer acknowledgment must never precede successful durable storage.
   if (delivered.includes('supabase') && env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM) tasks.push(['sms', textLeadAndTeam(lead, env)]);
@@ -359,8 +371,7 @@ async function patchSupabase(d, env) {
 
 export async function deliverDetails(d, env = process.env) {
   const summary = [d.timeline && `Timeline: ${d.timeline}`, d.occupancy && `Occupancy: ${d.occupancy}`, d.condition_flags.length && `Condition: ${d.condition_flags.join(', ')}`, d.desired_outcome && `Goal: ${d.desired_outcome}`].filter(Boolean);
-  const siteBase = (env.SITE_URL || 'https://www.callharbison.com').replace(/\/$/, '');
-  const hqLink = d.id ? `<p><a href="${escapeHtml(`${siteBase}/hq?lead=${encodeURIComponent(d.id)}`)}">Open in Harbison HQ →</a></p>` : '';
+  const hqLink = d.id ? `<p><a href="${escapeHtml(hqUrl(env, d.id))}">Open in Harbison HQ →</a></p>` : '';
   // Admit alerts only after a confirmed save. An uncertain PATCH is not retried here.
   try {
     if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) throw new Error('Details storage unavailable');
@@ -370,7 +381,7 @@ export async function deliverDetails(d, env = process.env) {
     return { ok: false, delivered: [], failures: [safeFailure('supabase', error)] };
   }
   const tasks = [];
-  if (env.RESEND_API_KEY) {
+  if (emailConfigured(env)) {
     tasks.push(['email', fetchWithRetry('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
@@ -383,9 +394,9 @@ export async function deliverDetails(d, env = process.env) {
     }, { retries: 0 }).then(async (r) => { if (!r.ok) throw new Error(`Resend ${r.status}`); })]);
   }
   if (env.LEAD_WEBHOOK_URL) {
+    const body = JSON.stringify({ kind: 'details', ...d, submitted_at: new Date().toISOString() });
     tasks.push(['webhook', fetchWithRetry(env.LEAD_WEBHOOK_URL, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ kind: 'details', ...d, submitted_at: new Date().toISOString() }),
+      method: 'POST', headers: webhookHeaders(body, env), body,
     }, { retries: 0 }).then((r) => { if (!r.ok) throw new Error(`Webhook ${r.status}`); })]);
   }
   const results = await Promise.allSettled(tasks.map(([, p]) => p));
@@ -410,9 +421,14 @@ export default async function handler(req, res, env = process.env, phase = COMMA
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const ip = clientIp(req);
-  if (ip && leadIpLimiter.hit(ip).limited) {
-    return res.status(429).json({ ok: false, error: 'Too many requests. Please wait a few minutes or call us directly.' });
+  // One bucket per IPv4 address or IPv6 /64. An address that cannot be told shares one bucket: never "no limit".
+  const ip = rateKey(clientIp(req));
+  const tooMany = () => res.status(429).json({ ok: false, error: 'Too many requests. Please wait a few minutes or call us directly.' });
+  if (leadIpLimiter.hit(ip).limited) return tooMany();
+  if (isCrossSite(req, env)) {
+    const shared = leadCrossSiteLimiter.hit('cross-site');
+    if (shared.count === CROSS_SITE_MAX + 1) console.warn(`[security] submissions from other websites are over their shared limit (${CROSS_SITE_MAX} in 10 minutes); the latest came from ${addressForLog(clientIp(req))}`);
+    if (shared.limited) return tooMany();
   }
 
   let body = req.body;
@@ -430,7 +446,8 @@ export default async function handler(req, res, env = process.env, phase = COMMA
   if (body.company) return res.status(200).json({ ok: true });
 
   if (body.kind === 'details') {
-    if (body.details_token && detailsSecret(env)) {
+    // Only a valid token names the lead. There is always a signing key, so this check is never skipped.
+    if (body.details_token) {
       const verified = readDetailsToken(body.details_token, env);
       if (!verified || !verified.address) return res.status(401).json({ ok: false, error: 'Invalid or expired lead reference.' });
       body = { ...body, id: verified.id, phone: verified.phone, address: verified.address };
@@ -439,7 +456,7 @@ export default async function handler(req, res, env = process.env, phase = COMMA
     if (d.phone.replace(/\D/g, '').length < 10 || d.address.length < 5) {
       return res.status(400).json({ ok: false, error: 'Missing lead reference.' });
     }
-    if (detailsSecret(env) && !body.details_token) {
+    if (!body.details_token) {
       return res.status(401).json({ ok: false, error: 'Invalid or expired lead reference.' });
     }
     const r = await deliverDetails(d, env);
@@ -450,11 +467,10 @@ export default async function handler(req, res, env = process.env, phase = COMMA
   const es = wantsSpanish(lead) || body.language === 'es';
   if (errors.length) return res.status(400).json({ ok: false, error: es ? 'Por favor, revise los campos resaltados.' : 'Please check the highlighted fields.', fields: errors });
 
-  if (ip) {
-    const normalizedPhone = lead.phone.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
-    if (normalizedPhone && leadPhoneLimiter.hit(normalizedPhone).limited) {
-      return res.status(429).json({ ok: false, error: es ? 'Ya recibimos su solicitud reciente. Por favor, llámenos o envíenos un texto si necesita ayuda de inmediato.' : 'We already received your recent request. Please call or text us if you need immediate help.' });
-    }
+  // Applies whether or not the address could be told (it used to apply only when it could).
+  const normalizedPhone = lead.phone.replace(/\D/g, '').replace(/^1(?=\d{10}$)/, '');
+  if (normalizedPhone && leadPhoneLimiter.hit(normalizedPhone).limited) {
+    return res.status(429).json({ ok: false, error: es ? 'Ya recibimos su solicitud reciente. Por favor, llámenos o envíenos un texto si necesita ayuda de inmediato.' : 'We already received your recent request. Please call or text us if you need immediate help.' });
   }
 
   if (body.submission_id !== undefined && (typeof body.submission_id !== 'string' || !UUID.test(body.submission_id))) return res.status(400).json({ ok: false, error: 'Invalid submission reference.' });

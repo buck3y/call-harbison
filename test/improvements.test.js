@@ -84,7 +84,7 @@ test('HQ end-to-end: phone search, manual lead, outreach auto-contact, reopen, C
   installMockSupabase(env);
 
   try {
-    const cookie = `hq_session=${makeSession('Nate', env)}`;
+    const cookie = `__Host-hq_session=${makeSession('Nate', env)}`;
     const authHeaders = { cookie, 'x-hq': '1' };
 
     // 1. Digit-only phone search matches formatted "(661) 555-0101"
@@ -287,7 +287,8 @@ test('fetchWithRetry recovers from transient 503 and partial email failure is lo
   const origFetch = globalThis.fetch;
   const origErr = console.error;
   console.error = () => {};
-  const env = { RESEND_API_KEY: 're_test_bad_domain' };
+  // LEAD_NOTIFY_EMAIL: there is no default recipient any more, and without one no e-mail is attempted.
+  const env = { RESEND_API_KEY: 're_test_bad_domain', LEAD_NOTIFY_EMAIL: 'staff@example.invalid' };
   installMockSupabase(env);
   const mockSbFetch = globalThis.fetch;
 
@@ -337,6 +338,7 @@ test('HQ duplicate-aware CSV import, integration health check, and one-click tes
   const env = {
     HQ_PASSWORD: 'test-password-123',
     RESEND_API_KEY: 're_live_key',
+    LEAD_NOTIFY_EMAIL: 'staff@example.invalid', // there is no default recipient any more
     LEAD_FROM_EMAIL: 'Harbison Leads <leads@callharbison.com>',
     CRM_INGEST_SECRET: 'shared-secret-at-least-32-characters-long',
   };
@@ -350,7 +352,7 @@ test('HQ duplicate-aware CSV import, integration health check, and one-click tes
   };
 
   try {
-    const cookie = `hq_session=${makeSession('Jason', env)}`;
+    const cookie = `__Host-hq_session=${makeSession('Jason', env)}`;
     const authHeaders = { cookie, 'x-hq': '1' };
 
     // 1. Health endpoint reports non-secret integration readiness
