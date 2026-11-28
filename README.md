@@ -127,6 +127,10 @@ Private, password-protected team panel at **https://www.callharbison.com/hq**.
 - **Security:** one `/api/hq` handler; signed HttpOnly/Secure/SameSite=Strict session cookie (12 hours), signed with a key kept in the server's state folder; failed-login throttling; writes require the panel's own header; edits are whitelisted and validated; the database has no network port and answers only the site's own process; `/hq` is noindex and blocked in robots.txt.
 - **Try it locally with sample data:** `npm run dev -- --mock`, open http://localhost:3000/hq, password `demo`.
 
+## AI assistant connection (MCP) — `/api/mcp`
+
+Read-only access for Nathanael's Grok assistant to leads, the pipeline and site statistics: six tools, none of which can change, send or delete anything. Off (404) until `MCP_TOKEN` (32+ characters) is set in `/etc/call-harbison.env`. Contact details stay out of replies unless `MCP_CONTACT_DETAILS=on`. Check a deployment with `MCP_TOKEN=… node scripts/mcp-check.mjs https://www.callharbison.com/api/mcp`. It has been tested against this repository's own client, not yet against Grok itself. See [docs/MCP.md](docs/MCP.md).
+
 ## Spanish version — `/es`
 
 Every page is also built in Spanish under `/es` (home, how it works, situations, areas, guides, the family page, contact, the forms, the thank-you page and the legal pages). English stays the source of truth: the build reads each finished English page and swaps every visitor-facing text for its entry in `src/i18n/es/*.json` (keyed by the English text). Links, form values and structured data are handled automatically, and a header switch (English / Español) remembers the visitor's choice.

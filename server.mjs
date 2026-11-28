@@ -1,6 +1,6 @@
 // Production server for a VPS or any single machine. Run: npm start
 // It serves ./dist the way Vercel does (clean URLs plus the redirects, rewrites and headers in vercel.json)
-// and runs the four API handlers. It does not build: run `npm run build` first.
+// and runs the API handlers. It does not build: run `npm run build` first.
 // Put Caddy or nginx in front for HTTPS and compression. See docs/VPS.md.
 import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
@@ -11,6 +11,7 @@ import leadsHandler from './api/leads.js';
 import hqHandler from './api/hq.js';
 import intakeHandler from './api/intake.js';
 import trackHandler from './api/track.js';
+import mcpHandler from './api/mcp.js';
 import { flushAnalytics } from './lib/analytics-store.js';
 import { closeLocalDatabase, databaseMode, openLocalDatabase, startDailyBackups, useDatabase } from './lib/local-database.js';
 
@@ -20,7 +21,8 @@ export { flushAnalytics };
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const MAX_BODY_BYTES = 4.5 * 1024 * 1024; // the ceiling Vercel applies to a function request
 const DEFAULT_CACHE = 'public, max-age=0, must-revalidate';
-const API = { '/api/leads': leadsHandler, '/api/hq': hqHandler, '/api/intake': intakeHandler, '/api/track': trackHandler };
+// /api/mcp answers 404 until MCP_TOKEN is set (docs/MCP.md).
+const API = { '/api/leads': leadsHandler, '/api/hq': hqHandler, '/api/intake': intakeHandler, '/api/track': trackHandler, '/api/mcp': mcpHandler };
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml',
