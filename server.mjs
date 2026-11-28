@@ -12,8 +12,9 @@ import hqHandler from './api/hq.js';
 import intakeHandler from './api/intake.js';
 import trackHandler from './api/track.js';
 import { flushAnalytics } from './lib/analytics-store.js';
+import { closeLocalDatabase, databaseMode, openLocalDatabase, startDailyBackups, useDatabase } from './lib/local-database.js';
 
-// Writes the site analytics kept on this server (ANALYTICS_STORE=local) to disk. Called before the process exits.
+// Writes the site analytics kept on this server to disk. Called before the process exits.
 export { flushAnalytics };
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -278,13 +279,34 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     console.error('No ./dist/index.html yet. Run "npm run build" first.');
     process.exit(1);
   }
+  // The site's own database, unless SUPABASE_URL names a Supabase project. It is ready (schema applied) before the
+  // first request; if it cannot be opened the site does not start, rather than take leads it cannot store.
+  if (databaseMode(process.env) === 'local') {
+    try {
+      const db = await openLocalDatabase({ env: process.env });
+      useDatabase(process.env);
+      console.log(`Database: ${db.dir}${db.durable ? '' : ' (not forced to disk, see the warning above)'}`);
+    } catch (err) {
+      console.error(`The site was not started because its database could not be opened: ${err.message}`);
+      process.exit(1);
+    }
+    startDailyBackups();
+  }
   const server = createServer(createHandler({ dist }));
   server.listen(port, host, () => console.log(`Call Harbison is serving ./dist on http://${host}:${port}`));
 
+  let stopping = false;
   const stop = (signal) => {
     console.log(`${signal} received: finishing open requests`);
-    // The last few seconds of site analytics are still in memory: write them once the open requests are done.
-    const exit = () => { flushAnalytics(); process.exit(0); };
+    // The last few seconds of site analytics are still in memory, and the database must be closed cleanly:
+    // both happen once the open requests are done.
+    const exit = async () => {
+      if (stopping) return;
+      stopping = true;
+      flushAnalytics();
+      try { await closeLocalDatabase(); } catch (err) { console.error(`The database did not close cleanly: ${err.message}`); }
+      process.exit(0);
+    };
     server.close(exit);
     server.closeIdleConnections?.();
     setTimeout(exit, 10000).unref();

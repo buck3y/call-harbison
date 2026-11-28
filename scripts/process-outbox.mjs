@@ -1,9 +1,13 @@
 import { COMMAND_PHASE } from '../lib/command-phase.js';
-import { useNeon } from '../lib/neon.js';
+import { databaseMode } from '../lib/local-database.js';
 // Manual one-shot worker. Nothing is scheduled by this repository.
 import { processOutbox, emailAdapter } from '../lib/notification-outbox.js';
 const env=process.env;
-useNeon(env);
+// The site's own database can be open in one process only, the running site. Never open a second copy.
+if (databaseMode(env) === 'local') {
+ console.error('This site keeps its database on this server, and only the running site (server.mjs) may open it. This worker works only with a Supabase database (SUPABASE_URL). Nothing was done.');
+ process.exit(1);
+}
 if (COMMAND_PHASE !== 'protocol' || env.SELLER_OUTBOX_DISPATCH_ENABLED !== 'true') {
  console.log('Notification dispatch is OFF. No database access or messages attempted.');
 } else {

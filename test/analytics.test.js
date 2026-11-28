@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import track from '../api/track.js';
 import hq, { makeSession } from '../api/hq.js';
 
-const env = { CRM_INGEST_SECRET: 'test-secret-at-least-thirty-two-characters', HQ_PASSWORD: 'test', SUPABASE_URL: 'https://test.invalid', SUPABASE_SERVICE_ROLE_KEY: 'test' };
+// The shared (forwarding) collector: the default on Vercel, and ANALYTICS_STORE=shared anywhere else.
+const env = { ANALYTICS_STORE: 'shared', CRM_INGEST_SECRET: 'test-secret-at-least-thirty-two-characters', HQ_PASSWORD: 'test', SUPABASE_URL: 'https://test.invalid', SUPABASE_SERVICE_ROLE_KEY: 'test' };
 const response = () => ({ statusCode: 200, headers: {}, setHeader(k,v) { this.headers[k]=v; }, status(c) { this.statusCode=c; return this; }, json(b) { this.body=b; return this; } });
 test('collector labels its own site, strips query strings and never forwards raw IP', async () => {
   const original = globalThis.fetch;

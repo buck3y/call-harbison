@@ -229,10 +229,12 @@ test('API failures and limits are contained', async () => {
 test('a build for a host other than Vercel leaves out the Vercel-only scripts', () => {
   const render = (env) => execFileSync(process.execPath, ['--input-type=module', '-e', "import { homePage } from './src/templates.mjs'; process.stdout.write(homePage().includes('/_vercel/') ? 'present' : 'absent');"], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
-    env: { ...process.env, ...env },
+    env: { ...process.env, VERCEL: '', VERCEL_INSIGHTS: '', ...env },
   }).toString();
-  assert.equal(render({ VERCEL_INSIGHTS: '' }), 'present', 'the default build keeps Vercel Web Analytics and Speed Insights');
-  assert.equal(render({ VERCEL_INSIGHTS: 'off' }), 'absent', 'they would only 404 on a VPS');
+  assert.equal(render({}), 'absent', 'a build anywhere but Vercel leaves them out: they would only 404 on a VPS');
+  assert.equal(render({ VERCEL: '1' }), 'present', 'a Vercel build keeps Vercel Web Analytics and Speed Insights');
+  assert.equal(render({ VERCEL: '1', VERCEL_INSIGHTS: 'off' }), 'absent', 'VERCEL_INSIGHTS=off still turns them off');
+  assert.equal(render({ VERCEL_INSIGHTS: 'on' }), 'present', 'VERCEL_INSIGHTS=on still turns them on');
 });
 
 test('only a trusted proxy may say who the visitor is', () => {

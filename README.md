@@ -1,12 +1,12 @@
 # Call Harbison
 
-Website for Call Harbison (callharbison.com): "Property problem? Call Harbison." Static pages plus four small API routes. It runs on Vercel, or on a single VPS with `npm start` (see [docs/VPS.md](docs/VPS.md)).
+Website for Call Harbison (callharbison.com): "Property problem? Call Harbison." Static pages plus four small API routes. It runs on one Linux server (a Vultr VPS): a single Node process serves the pages and the APIs, keeps the leads in its own database on the server's disk, and keeps its own visitor statistics. No outside accounts are needed. Setup, deploys, backups and restore: [docs/VPS.md](docs/VPS.md).
 
 ## One CRM for both websites
 
-Call Harbison HQ is the shared intake desk for this website and Harbison Standard.
-The private `/api/intake` bridge accepts authenticated Standard inquiries into the
-existing lead table. HQ labels and filters by brand, preserves Standard buyer
+Call Harbison HQ can also be the shared intake desk for this website and Harbison Standard
+(optional). The private `/api/intake` bridge accepts authenticated Standard inquiries into the
+same lead table. HQ labels and filters by brand, preserves Standard buyer
 profiles and messages, and keeps one pipeline for follow-up. Set `CRM_INGEST_SECRET`
 to the same 32+ character server-only secret as Standard's `SHARED_CRM_SECRET`.
 Customer SMS remains off unless `LEAD_ACK_ENABLED=true` and response consent is
@@ -28,7 +28,7 @@ verification limits, historical leads and items still awaiting broker review.
 | Thank-you (post-submit), Privacy, Terms, 404 | `/thank-you`, `/privacy`, `/terms` |
 | Shared HQ CRM (dashboard, leads, partners & ROI, first-party website stats) | `/hq`, `/hq/leads`, `/hq/partners`, `/hq/stats/*` |
 
-Also: lead form API (`/api/leads`), private Harbison Standard intake bridge (`/api/intake`), first-party privacy-preserving analytics collector (`/api/track`), Vercel Web Analytics & Speed Insights, `sitemap.xml`, `robots.txt` (AI crawlers explicitly allowed on public pages; `/hq` and `/thank-you` disallowed), `llms.txt`, favicon, Open Graph/Twitter tags, a connected Schema.org `@graph` on every page (RealEstateAgent, Person with DRE license credential, WebSite, WebPage, Service, Article, BreadcrumbList, FAQPage), answer-first "Quick answer" blocks, an "At a glance" facts section, GA4/GTM support, a sticky mobile call bar, spam honeypot + IP/phone rate limiting, signed thank-you detail tokens, and UTM tracking on leads.
+Also: lead form API (`/api/leads`), private Harbison Standard intake bridge (`/api/intake`), first-party privacy-preserving analytics (`/api/track`, stored on the server), `sitemap.xml`, `robots.txt` (AI crawlers explicitly allowed on public pages; `/hq` and `/thank-you` disallowed), `llms.txt`, favicon, Open Graph/Twitter tags, a connected Schema.org `@graph` on every page (RealEstateAgent, Person with DRE license credential, WebSite, WebPage, Service, Article, BreadcrumbList, FAQPage), answer-first "Quick answer" blocks, an "At a glance" facts section, optional GA4/GTM/Metricool (only with your own IDs), a sticky mobile call bar, spam honeypot + IP/phone rate limiting, signed thank-you detail tokens, and UTM tracking on leads.
 
 ## Project layout
 
@@ -40,14 +40,20 @@ src/content-playbook.mjs ← site-playbook content: hero, 5 paths, seller promis
 src/family.mjs           ← "Selling a loved one's house" funnel content
 src/templates.mjs        ← HTML layout, structured data, interactive net estimator, and page templates
 static/                  ← fingerprinted styles.css / script.js / analytics.js, self-hosted fonts, images, /hq panel
-api/leads.js             ← serverless function: public website lead form + signed thank-you details
-api/hq.js                ← serverless function: shared HQ CRM, CSV import/export, partners/spend, health check
-api/intake.js            ← serverless function: authenticated server-to-server bridge from Harbison Standard
-api/track.js             ← serverless function: first-party analytics forwarder + CSP report sink
-lib/                     ← shared intake normalizer, IP/rate-limit helper, transient retry helper, CSV/JSON importer
+api/leads.js             ← public website lead form + signed thank-you details
+api/hq.js                ← HQ CRM, CSV import/export, partners/spend, health check
+api/intake.js            ← authenticated server-to-server bridge from Harbison Standard
+api/track.js             ← first-party analytics + CSP report sink
+lib/local-database.js    ← the site's own database (PostgreSQL inside the Node process), its lock, backups, restore
+lib/postgres-rest.js     ← turns the handlers' database requests into SQL
+lib/analytics-store.js   ← the visitor statistics kept on the server
+lib/                     ← also: intake normalizer, IP/rate-limit helper, retry helper, CSV/JSON importer
+server.mjs               ← the production server: pages, APIs, database, shutdown
 build.mjs                ← generates ./dist (pages, fingerprinted assets, sitemap.xml, robots.txt, llms.txt)
 dev.mjs, dev/            ← local preview server and the HQ mock database
-supabase/                ← schema.sql + migrations 002–005 (applied to the harbison-buys-homes project)
+supabase/                ← schema.sql + migrations: the database's tables, applied by the site itself at start
+scripts/                 ← restore-database.mjs, i18n checks, two manual workers (off)
+deploy/                  ← systemd unit, Caddy config, release script
 test/                    ← `npm test`
 brand/                   ← logo originals (not deployed)
 docs/                    ← shared CRM runbook, project record, sitemap overview, family-funnel notes
@@ -56,44 +62,28 @@ docs/                    ← shared CRM runbook, project record, sitemap overvie
 
 ## Branches
 
-`main` is the only long-lived branch and is what Vercel deploys to production. Do new work on a short-lived branch, open a pull request (CI runs automatically), merge, then delete the branch. Past feature branches are preserved as `archive/*` tags.
+`main` is the only long-lived branch and is what the server deploys (`deploy/deploy.sh` fetches it). Do new work on a short-lived branch, open a pull request (CI runs automatically), merge, then delete the branch. Past feature branches are preserved as `archive/*` tags.
 
 ## Local development
 
 ```bash
-npm run dev    # builds and serves http://localhost:3000 (API included)
-npm test       # lead API tests
+npm ci         # Node 22; the one dependency is PGlite, the database engine
+npm run dev    # builds and serves http://localhost:3000 with the APIs and a database in ./.data/db
+npm test
 ```
 
-Run `npm ci` first. Node 22+ is recommended; the isolated SQL tests use the pinned PGlite development dependency.
+Set `HQ_PASSWORD` in your shell to sign in to `/hq` locally, or use `npm run dev -- --mock` for sample data (password `demo`).
 
-## Deploy to Vercel
+## Running it on the server
 
-1. In Vercel: **Add New → Project → Import** this repository. Settings are read from `vercel.json` (build: `npm test && npm run build`, output: `dist`) — no changes needed.
-2. Add environment variables (Project → Settings → Environment Variables). See `.env.example`. Set **at least one** lead destination:
-   - **Email alerts (recommended):** `RESEND_API_KEY`, `LEAD_NOTIFY_EMAIL`, `LEAD_FROM_EMAIL` (sender on a domain verified in Resend).
-   - **Database:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — run `supabase/schema.sql` first.
-   - **CRM / SMS automations:** `LEAD_WEBHOOK_URL` (Zapier, Make, GoHighLevel, etc.).
-   - `SITE_URL` (your final domain) and optional `GA_MEASUREMENT_ID`.
-3. Redeploy after adding env vars, then add your custom domain under Project → Domains.
+[docs/VPS.md](docs/VPS.md) covers a Vultr VPS with Ubuntu, from an empty server to a live site: the systemd unit, Caddy for HTTPS, the release script (`deploy/deploy.sh` builds each release in its own folder, switches over, and rolls back if the new one does not answer), the settings file, backups and restore. The settings file needs only `SITE_URL` and `HQ_PASSWORD`; email alerts are optional.
 
-If no storing destination is configured (or if a configured Supabase CRM fails to store the lead), `/api/leads` returns `502` rather than reporting false success to the visitor. Partial notification failures (such as a failed email alert after a successful Supabase insert) are recorded directly on the lead's HQ activity timeline.
-
-## Deploy to a VPS
-
-`server.mjs` serves `./dist` and the API routes from one Node process, and reads `vercel.json` for redirects, rewrites and headers so both hosts behave the same.
-
-```bash
-npm ci && npm run build
-npm start                  # http://127.0.0.1:3000, set PORT / HOST to change
-```
-
-For a real server, [docs/VPS.md](docs/VPS.md) has the full setup: a systemd unit, a Caddy config for HTTPS, and `deploy/deploy.sh`, which builds each release in its own folder, switches over, and rolls back if the new one does not answer.
+A lead counts as received only once it is in the database. If it cannot be stored, `/api/leads` answers `502` and the visitor is asked to call, rather than being told it was sent. A failed email alert after a successful save is recorded on the lead's HQ activity timeline.
 
 ## Before launch checklist
 
 - [ ] Set `SITE_URL` to the real domain
-- [ ] Configure a lead destination and submit a test lead
+- [ ] Set `HQ_PASSWORD`, submit a test lead and find it in `/hq`
 - [ ] Swap Unsplash stock photos (in `src/content.mjs`) for real local project photos
 - [ ] Review copy, FAQ answers, and the Privacy/Terms pages (have an attorney review — especially the SMS consent language)
 - [ ] Submit `sitemap.xml` in Google Search Console; set up Google Business Profile
@@ -117,7 +107,7 @@ without seller follow-up questions. See the [search implementation and measureme
 record](docs/SEARCH-IMPLEMENTATION-2026-11-06.md) for service boundaries, source
 evidence, recovery behavior and the manual 30/60/90-day review plan.
 
-Three steps, per the site playbook: **situation → address (street, city, ZIP) → contact + consent**. The lead is created at step 3. Timeline, occupancy, condition, and goals are asked afterward on `/thank-you` and attached to the same lead (`{ kind: 'details' }` → `/api/leads`). Transactional consent (required) and marketing consent (optional) are stored separately. The database lives in the Supabase project **harbison-buys-homes** (shared with the Lead Desk app; the website only adds `leads`, `partners`, `lead_events`, `ad_spend`, and `v_*` views). `schema.sql` and migrations 002–004 were applied on 2026-09-24 as `website_001`–`website_004`.
+Three steps, per the site playbook: **situation → address (street, city, ZIP) → contact + consent**. The lead is created at step 3. Timeline, occupancy, condition, and goals are asked afterward on `/thank-you` and attached to the same lead (`{ kind: 'details' }` → `/api/leads`). Transactional consent (required) and marketing consent (optional) are stored separately. Leads live in the site's own database on the server: `leads`, `partners`, `lead_events`, `ad_spend`, the `v_*` views and the operations tables, all created from `supabase/schema.sql` and `supabase/migrations/` when the site starts.
 
 Analytics events (GTM/GA4, no personal data): `phone_click`, `cta_click`, `lead_form_view`, `lead_form_start`, `lead_form_step_complete`, `lead_form_submit`, `lead_form_error`, `lead_form_success`, `generate_lead`, `guide_view`, `situation_page_view`, `location_page_view`.
 
@@ -132,9 +122,9 @@ Private, password-protected team panel at **https://www.callharbison.com/hq**.
 - **Dashboard:** leads waiting for first contact, follow-ups due, new today / 7 days, open pipeline, appointments, median time to first contact, gross profit (90 days), leads per week, pipeline by stage, brand, source, path of interest, and a live delivery/integration readiness card with a one-click test email alert (`Send test email alert`).
 - **CRM (`/hq/leads`):** filter by view (open, new, follow-ups due, closed, spam, all), brand, or individual stage; punctuation-tolerant phone/text search; `+ New lead` manual intake; duplicate-aware `Import` (CSV/JSON with preview); `Export CSV`; editable contact/property/pipeline fields; outreach logs that automatically record first contact; and deep-linkable lead URLs (`/hq?lead=<id>`).
 - **Partners & ROI (`/hq/partners`):** manage referral partner slugs (`callharbison.com/family?ref=<slug>`) and monthly ad spend / CPL / ROAS.
-- **Website stats (`/hq/stats/harbison-standard` & `/hq/stats/call-harbison`):** first-party traffic, sources, geography, devices, and pages for each site.
-- **Setup:** in Vercel set `HQ_PASSWORD` (long and unique) plus `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, then redeploy. Changing the password signs everyone out.
-- **Security:** one `/api/hq` function; signed HttpOnly/Secure/SameSite=Strict session cookie (12 hours); failed-login throttling; writes require the panel's own header; edits are whitelisted and validated; the database key never reaches the browser; `/hq` is noindex and blocked in robots.txt.
+- **Website stats (`/hq/stats/call-harbison`):** first-party traffic, sources, devices, pages and the lead funnel, kept on the server. A Harbison Standard tab appears only when `CRM_INGEST_SECRET` connects the shared collector.
+- **Setup:** set `HQ_PASSWORD` (long and unique) in `/etc/call-harbison.env` and restart the site. Changing the password signs everyone out.
+- **Security:** one `/api/hq` handler; signed HttpOnly/Secure/SameSite=Strict session cookie (12 hours), signed with a key kept in the server's state folder; failed-login throttling; writes require the panel's own header; edits are whitelisted and validated; the database has no network port and answers only the site's own process; `/hq` is noindex and blocked in robots.txt.
 - **Try it locally with sample data:** `npm run dev -- --mock`, open http://localhost:3000/hq, password `demo`.
 
 ## Spanish version — `/es`

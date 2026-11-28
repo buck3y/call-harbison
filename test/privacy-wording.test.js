@@ -18,7 +18,7 @@ const render = (env) => JSON.parse(execFileSync(process.execPath, ['--input-type
   'process.stdout.write(JSON.stringify({ html, missing: [...report.missing] }));',
 ].join('\n')], {
   cwd: fileURLToPath(new URL('..', import.meta.url)),
-  env: { ...process.env, ANALYTICS_DEFAULTS: '', GA_MEASUREMENT_ID: '', METRICOOL_HASH: '', GTM_ID: '', VERCEL_INSIGHTS: '', ...env },
+  env: { ...process.env, VERCEL: '', ANALYTICS_DEFAULTS: '', GA_MEASUREMENT_ID: '', METRICOOL_HASH: '', GTM_ID: '', VERCEL_INSIGHTS: '', ...env },
 }).toString());
 
 const main = (html) => html.slice(html.indexOf('<main'), html.indexOf('</main>'));
@@ -29,8 +29,8 @@ const firstParty = [
   /data-analytics-optout/,
 ];
 
-test('default build: the privacy page names the tools that load after consent', () => {
-  const { html, missing } = render({});
+test('Vercel build (built-in IDs): the privacy page names the tools that load after consent', () => {
+  const { html, missing } = render({ VERCEL: '1' });
   assert.match(html, /<html [^>]*data-trackers="ga metricool"/);
   assert.match(main(html), /<li>Google Analytics<\/li>/);
   assert.match(main(html), /<li>Metricool<\/li>/);
@@ -39,8 +39,8 @@ test('default build: the privacy page names the tools that load after consent', 
   assert.deepEqual(missing, [], 'every sentence has Spanish');
 });
 
-test('ANALYTICS_DEFAULTS=off with no IDs: the page names no third-party tracker and implies no analytics cookies', () => {
-  for (const env of [{ ANALYTICS_DEFAULTS: 'off' }, { ANALYTICS_DEFAULTS: 'off', VERCEL_INSIGHTS: 'off' }]) {
+test('no IDs (the server default, or ANALYTICS_DEFAULTS=off): no third-party tracker named, no analytics cookies implied', () => {
+  for (const env of [{}, { VERCEL: '1', ANALYTICS_DEFAULTS: 'off' }, { VERCEL: '1', ANALYTICS_DEFAULTS: 'off', VERCEL_INSIGHTS: 'off' }]) {
     const { html, missing } = render(env);
     assert.match(html, /<html [^>]*data-trackers=""/);
     assert.doesNotMatch(html, /Google Analytics|Google Tag Manager|Metricool|googletagmanager/i);
@@ -48,7 +48,7 @@ test('ANALYTICS_DEFAULTS=off with no IDs: the page names no third-party tracker 
     assert.match(main(html), /this site uses no third-party analytics or advertising tools\./i);
     for (const re of firstParty) assert.match(html, re);
     assert.deepEqual(missing, [], 'every sentence has Spanish');
-    if (env.VERCEL_INSIGHTS === 'off') assert.doesNotMatch(main(html), /Vercel/);
+    if (!env.VERCEL || env.VERCEL_INSIGHTS === 'off') assert.doesNotMatch(main(html), /Vercel/);
     else assert.match(main(html), /Vercel Web Analytics and Speed Insights/);
   }
 });

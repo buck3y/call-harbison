@@ -1,13 +1,9 @@
 import { PGlite } from '@electric-sql/pglite';
-import { readFile, readdir } from 'node:fs/promises';
+import { prepareSchema } from '../lib/local-database.js';
+// An in-memory copy of the site's database, built by the same schema runner the server uses on its own folder.
 export async function createTestDatabase({ excludeMigrations = [] } = {}) {
  const db = new PGlite();
- await db.exec('create role anon; create role authenticated; create role service_role bypassrls;');
- await db.exec(await readFile(new URL('../supabase/schema.sql',import.meta.url),'utf8'));
- for (const file of (await readdir(new URL('../supabase/migrations/',import.meta.url))).filter(f=>f.endsWith('.sql') && !excludeMigrations.includes(f)).sort()) {
-  try { await db.exec(await readFile(new URL(`../supabase/migrations/${file}`,import.meta.url),'utf8')); }
-  catch(e) { throw new Error(`Migration ${file}: ${e.message}`); }
- }
+ await prepareSchema(db, { exclude: excludeMigrations });
  return db;
 }
 export async function rpc(db,name,body) {

@@ -14,8 +14,9 @@ WorkingDirectory=/srv/call-harbison/current
 EnvironmentFile=/etc/call-harbison.env
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/node server.mjs
-# The one writable folder: /var/lib/call-harbison, passed to the app as STATE_DIRECTORY. Site analytics
-# (ANALYTICS_STORE=local) live in its analytics/ subfolder. It survives deploys and restarts; back it up.
+# The one writable folder: /var/lib/call-harbison, passed to the app as STATE_DIRECTORY. It holds the database (db/),
+# its daily backups (backups/), the HQ signing key and the site analytics (analytics/). Deploys and restarts leave it
+# alone. The app closes the database cleanly on stop; TimeoutStopSec leaves it time to.
 StateDirectory=call-harbison
 StateDirectoryMode=0700
 Restart=on-failure

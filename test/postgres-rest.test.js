@@ -1,9 +1,9 @@
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 import { createTestDatabase } from '../dev/test-database.mjs';
-import { createRestHandler } from '../lib/neon-rest.js';
+import { createRestHandler } from '../lib/postgres-rest.js';
 
-const BASE = 'https://neon.invalid/rest/v1/';
+const BASE = 'http://local-database.invalid/rest/v1/';
 let db; let call;
 
 before(async () => {
@@ -48,10 +48,10 @@ test('a plain duplicate insert is reported as 409 with the Postgres code', async
 
 test('merge-duplicates updates the existing row', async () => {
   const headers = { Prefer: 'resolution=merge-duplicates,return=representation' };
-  await call('partners?on_conflict=slug', { method: 'POST', headers, body: { slug: 'neon-test', name: 'First', category: 'other', status: 'prospect' } });
-  const merged = await call('partners?on_conflict=slug', { method: 'POST', headers, body: { slug: 'neon-test', name: 'Second', category: 'other', status: 'active' } });
+  await call('partners?on_conflict=slug', { method: 'POST', headers, body: { slug: 'rest-test', name: 'First', category: 'other', status: 'prospect' } });
+  const merged = await call('partners?on_conflict=slug', { method: 'POST', headers, body: { slug: 'rest-test', name: 'Second', category: 'other', status: 'active' } });
   assert.equal(merged.data[0].name, 'Second');
-  const all = await call('partners?slug=eq.neon-test');
+  const all = await call('partners?slug=eq.rest-test');
   assert.equal(all.data.length, 1);
 });
 

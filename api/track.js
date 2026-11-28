@@ -1,6 +1,6 @@
 // Same-origin collector. Only this server can label records as Call Harbison.
-// ANALYTICS_STORE=local records on this machine (lib/analytics-store.js). Otherwise each event is forwarded to the
-// shared collector at Harbison Standard, as before.
+// On a server it records on this machine (lib/analytics-store.js). With ANALYTICS_STORE=shared, or on Vercel, each
+// event is forwarded to the shared collector at Harbison Standard instead.
 import { createHmac } from 'node:crypto';
 import { clientIp } from '../lib/request-ip.js';
 import { EVENT_NAMES, getAnalyticsStore, isLocalAnalytics } from '../lib/analytics-store.js';

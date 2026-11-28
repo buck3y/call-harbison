@@ -1,5 +1,5 @@
-// ANALYTICS_STORE=local: /api/track records on this server and HQ reads the same store. Without the setting,
-// test/analytics.test.js and test/central-hq.test.js keep proving the shared (forwarding) behaviour.
+// Local analytics (the default off Vercel, or ANALYTICS_STORE=local): /api/track records on this server and HQ reads
+// the same store. test/analytics.test.js and test/central-hq.test.js keep proving the shared (forwarding) behaviour.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -94,12 +94,12 @@ test('/api/track: a store that cannot be written fails visibly; forwarding mode 
     assert.ok(errors.some((line) => line.startsWith('[analytics] local store unavailable')));
     assert.ok(errors.every((line) => !line.includes('192.0.2.8') && !line.includes('iPhone')), 'the log names no visitor');
 
-    const shared = { CRM_INGEST_SECRET: CRM };
+    const shared = { ANALYTICS_STORE: 'shared', CRM_INGEST_SECRET: CRM };
     const skipped = await post({ sid: randomUUID(), type: 'event', name: 'phone_click', path: '/' }, shared);
     assert.equal(skipped.statusCode, 202);
     assert.deepEqual(skipped.body, { ok: true, stored: false });
     assert.equal((await post({ sid: randomUUID(), type: 'event', name: 'nope', path: '/' }, shared)).statusCode, 400);
-    assert.equal((await post({ sid: randomUUID(), type: 'start', path: '/' }, {})).statusCode, 503, 'without either setting nothing changes');
+    assert.equal((await post({ sid: randomUUID(), type: 'start', path: '/' }, { VERCEL: '1' })).statusCode, 503, 'on Vercel without the shared secret nothing changes');
   } finally { globalThis.fetch = original; console.error = log; rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -155,8 +155,10 @@ test('the shared source is passed through with its source and time zone named', 
       assert.deepEqual(res.body.analytics, { ...shared, source: 'shared', timezone: 'UTC' });
     }
     globalThis.fetch = async () => Response.json({ ...shared, site: 'call_harbison' });
-    const callHarbison = await get('/api/hq?action=analytics&site=call_harbison', { ...HQ_ENV, CRM_INGEST_SECRET: CRM });
-    assert.equal(callHarbison.body.analytics.source, 'shared', 'without ANALYTICS_STORE=local this site stays shared');
+    for (const env of [{ VERCEL: '1' }, { ANALYTICS_STORE: 'shared' }]) {
+      const callHarbison = await get('/api/hq?action=analytics&site=call_harbison', { ...HQ_ENV, CRM_INGEST_SECRET: CRM, ...env });
+      assert.equal(callHarbison.body.analytics.source, 'shared', `${JSON.stringify(env)}: this site's numbers stay shared`);
+    }
   } finally { globalThis.fetch = original; ctx.done(); }
 });
 
@@ -166,10 +168,12 @@ test('server.mjs exports the flush it runs on SIGTERM and SIGINT', () => {
 
 test('the me and sign-in replies say which stats tabs can work', async () => {
   for (const [extra, expected] of [
-    [{}, { call_harbison: null, harbison_standard: null }],
-    [{ CRM_INGEST_SECRET: CRM }, { call_harbison: 'shared', harbison_standard: 'shared' }],
-    [{ ANALYTICS_STORE: 'local' }, { call_harbison: 'local', harbison_standard: null }],
-    [{ ANALYTICS_STORE: 'local', CRM_INGEST_SECRET: CRM }, { call_harbison: 'local', harbison_standard: 'shared' }],
+    [{}, { call_harbison: 'local', harbison_standard: null }],
+    [{ CRM_INGEST_SECRET: CRM }, { call_harbison: 'local', harbison_standard: 'shared' }],
+    [{ VERCEL: '1' }, { call_harbison: null, harbison_standard: null }],
+    [{ VERCEL: '1', CRM_INGEST_SECRET: CRM }, { call_harbison: 'shared', harbison_standard: 'shared' }],
+    [{ ANALYTICS_STORE: 'shared', CRM_INGEST_SECRET: CRM }, { call_harbison: 'shared', harbison_standard: 'shared' }],
+    [{ VERCEL: '1', ANALYTICS_STORE: 'local', CRM_INGEST_SECRET: CRM }, { call_harbison: 'local', harbison_standard: 'shared' }],
   ]) {
     const env = { ...HQ_ENV, ...extra };
     const me = await get('/api/hq?action=me', env);

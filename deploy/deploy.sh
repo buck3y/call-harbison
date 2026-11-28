@@ -66,7 +66,7 @@ else
 fi
 
 say "Building"
-# The build reads the public settings (SITE_URL, analytics ids, VERCEL_INSIGHTS) from the same file the service uses.
+# The build reads the public settings (SITE_URL, GA_MEASUREMENT_ID, METRICOOL_HASH, GTM_ID) from the same file the service uses.
 as_app node --env-file="$ENV_FILE" build.mjs
 
 say "Switching to the new release"
@@ -78,9 +78,10 @@ if [ "${SKIP_RESTART:-}" = "1" ]; then
 else
   PORT="$(as_app sed -n 's/^PORT=//p' "$ENV_FILE" | tail -n 1 | tr -d "\"' \r")"
   PORT="${PORT:-3000}"
-  # Up to ten seconds for the app to answer after a restart.
+  # Up to thirty seconds for the app to answer after a restart: it opens its database (and, the very first time,
+  # creates it) before it listens.
   answers() {
-    for _ in $(seq 1 20); do
+    for _ in $(seq 1 60); do
       if curl -fs -o /dev/null "http://127.0.0.1:$PORT/healthz"; then return 0; fi
       sleep 0.5
     done

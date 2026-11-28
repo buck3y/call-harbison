@@ -72,7 +72,7 @@ test('collector drops arbitrary inquiry data, titles and UTMs while preserving b
     assert.doesNotMatch(init.body, /private|email|address|utm|title/);
     return Response.json({ ok: true, stored: true });
   };
-  try { await track({ method: 'POST', body: { sid: randomUUID(), type: 'heartbeat', path: '/investors?email=private', durationSeconds: 9000, email: 'private', address: 'private', title: 'private', utm: { source: 'private' } } }, res(), { CRM_INGEST_SECRET: 'synthetic' }); }
+  try { await track({ method: 'POST', body: { sid: randomUUID(), type: 'heartbeat', path: '/investors?email=private', durationSeconds: 9000, email: 'private', address: 'private', title: 'private', utm: { source: 'private' } } }, res(), { ANALYTICS_STORE: 'shared', CRM_INGEST_SECRET: 'synthetic' }); }
   finally { globalThis.fetch = original; }
 });
 

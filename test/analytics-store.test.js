@@ -321,8 +321,10 @@ test('settings: where the data lives, which sources HQ can show, and the shutdow
   assert.equal(analyticsDir({ STATE_DIRECTORY: '/var/lib/call-harbison' }), '/var/lib/call-harbison/analytics');
   assert.equal(analyticsDir({ STATE_DIRECTORY: '/var/lib/a:/var/lib/b' }), '/var/lib/a/analytics');
   assert.equal(analyticsDir({}), join(process.cwd(), '.data', 'analytics'));
-  assert.deepEqual(analyticsSources({}), { call_harbison: null, harbison_standard: null });
-  assert.deepEqual(analyticsSources({ CRM_INGEST_SECRET: 's' }), { call_harbison: 'shared', harbison_standard: 'shared' });
+  assert.deepEqual(analyticsSources({}), { call_harbison: 'local', harbison_standard: null }, 'off Vercel, local is the default');
+  assert.deepEqual(analyticsSources({ VERCEL: '1' }), { call_harbison: null, harbison_standard: null });
+  assert.deepEqual(analyticsSources({ VERCEL: '1', CRM_INGEST_SECRET: 's' }), { call_harbison: 'shared', harbison_standard: 'shared' });
+  assert.deepEqual(analyticsSources({ ANALYTICS_STORE: 'shared', CRM_INGEST_SECRET: 's' }), { call_harbison: 'shared', harbison_standard: 'shared' });
   assert.deepEqual(analyticsSources({ ANALYTICS_STORE: 'local' }), { call_harbison: 'local', harbison_standard: null });
   assert.deepEqual(analyticsSources({ ANALYTICS_STORE: 'local', CRM_INGEST_SECRET: 's' }), { call_harbison: 'local', harbison_standard: 'shared' });
 

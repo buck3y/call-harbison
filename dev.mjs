@@ -1,5 +1,6 @@
 // Local preview: builds the site, serves ./dist with clean URLs, and runs /api/leads + /api/hq + /api/intake + /api/track. Run: npm run dev
-// Add `-- --mock` to try HQ with sample data and password "demo" (no real database needed).
+// Leads and HQ use the site's own database in ./.data/db (set HQ_PASSWORD to sign in to /hq).
+// Add `-- --mock` to try HQ with sample data and password "demo" instead (nothing is kept).
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
@@ -9,6 +10,8 @@ import hqHandler from './api/hq.js';
 import intakeHandler from './api/intake.js';
 import trackHandler from './api/track.js';
 import { family } from './src/family.mjs';
+import { flushAnalytics } from './lib/analytics-store.js';
+import { closeLocalDatabase, databaseMode, openLocalDatabase, useDatabase } from './lib/local-database.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
@@ -17,6 +20,14 @@ if (process.argv.includes('--mock')) {
   const { installOperationsMock } = await import('./dev/operations-mock.mjs');
   await installOperationsMock();
   console.log(`HQ mock mode: sample data, password "demo" → http://localhost:${PORT}/hq`);
+} else if (databaseMode(process.env) === 'local') {
+  // The same database the server uses, in ./.data/db unless STATE_DIRECTORY or DATABASE_DIR says otherwise.
+  const db = await openLocalDatabase({ env: process.env });
+  useDatabase(process.env);
+  console.log(`Database: ${db.dir}`);
+  const stop = async () => { flushAnalytics(); await closeLocalDatabase().catch(() => {}); process.exit(0); };
+  process.on('SIGINT', stop);
+  process.on('SIGTERM', stop);
 }
 
 execSync('node build.mjs', { stdio: 'inherit' });

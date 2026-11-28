@@ -1,13 +1,13 @@
 import { COMMAND_PHASE } from '../lib/command-phase.js';
-import { useNeon } from '../lib/neon.js';
+import { LOCAL_URL, useDatabase } from '../lib/local-database.js';
 import { sellerOperations } from '../lib/seller-operations-api.js';
 // HQ panel API: POST/GET/PATCH/DELETE /api/hq?action=...
-// Password login (HQ_PASSWORD) → signed, HttpOnly session cookie. All data access happens here with the
-// Supabase service key; the browser never sees it. One function file keeps the Vercel Hobby function count low.
+// Password login (HQ_PASSWORD) → signed, HttpOnly session cookie. All data access happens here, on the server.
 //
-// Env: HQ_PASSWORD (required), SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (required),
-//      HQ_SESSION_SECRET (optional — otherwise derived from the password + service key, so changing
-//      the password signs everyone out).
+// Env: HQ_PASSWORD (required). The database is the site's own (lib/local-database.js sets SUPABASE_URL and
+//      SUPABASE_SERVICE_ROLE_KEY, the latter to the key in the state folder's signing-key), or a Supabase project.
+//      HQ_SESSION_SECRET (optional — otherwise derived from the password + that key, so changing the password
+//      signs everyone out).
 import { createHmac, createHash, timingSafeEqual } from 'node:crypto';
 import { brandOf, brandFilter, STANDARD_FORM } from '../lib/shared-intake.js';
 import { demoLeadReason } from '../lib/demo-leads.js';
@@ -325,7 +325,7 @@ export function computeStats(leads, now = Date.now()) {
 
 // ---------- handler ----------
 export default async function handler(req, res, env = process.env, phase = COMMAND_PHASE) {
-  useNeon(env);
+  useDatabase(env);
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
   const url = new URL(req.url, 'http://x');
@@ -335,7 +335,9 @@ export default async function handler(req, res, env = process.env, phase = COMMA
   body = body && typeof body === 'object' ? body : {};
 
   if (!env.HQ_PASSWORD || !env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
-    return res.status(503).json({ ok: false, error: 'HQ is not configured yet. Set HQ_PASSWORD, SUPABASE_URL, and SUPABASE_SERVICE_ROLE_KEY in the hosting settings, then redeploy.' });
+    return res.status(503).json({ ok: false, error: env.HQ_PASSWORD
+      ? 'HQ has no database. Start the site with server.mjs, which opens its own database, or set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.'
+      : 'HQ is not configured yet. Set HQ_PASSWORD in the settings file (/etc/call-harbison.env), then restart the site.' });
   }
 
   if (action === 'login' && req.method === 'POST') {
@@ -376,7 +378,7 @@ export default async function handler(req, res, env = process.env, phase = COMMA
       return res.status(200).json({
         ok: true,
         health: {
-          crm: { ok: true, label: 'Supabase shared CRM connected' },
+          crm: { ok: true, label: env.SUPABASE_URL === LOCAL_URL ? 'Database on this server' : 'Supabase shared CRM connected' },
           email: {
             configured: Boolean(env.RESEND_API_KEY),
             fromConfigured: Boolean(fromRaw),

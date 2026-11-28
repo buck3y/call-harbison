@@ -1,9 +1,10 @@
 import { COMMAND_PHASE } from '../lib/command-phase.js';
-import { useNeon } from '../lib/neon.js';
-// Vercel serverless function: POST /api/leads
+import { useDatabase } from '../lib/local-database.js';
+// POST /api/leads
 // Delivers each lead to whichever destinations are configured via environment variables:
+//   the site's own database (lib/local-database.js, the default on a server) -> row in `leads` table
+//   or SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY                               -> the same row in Supabase
 //   RESEND_API_KEY + LEAD_NOTIFY_EMAIL (+ optional LEAD_FROM_EMAIL)  -> email alert
-//   SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY                         -> row in `leads` table
 //   LEAD_WEBHOOK_URL                                                 -> JSON POST (Zapier, Make, GoHighLevel, etc.)
 //   TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + TWILIO_FROM             -> instant text to the lead (+ LEAD_ALERT_SMS for staff)
 // A second request type, { kind: 'details' }, adds the optional thank-you-page answers using a signed token.
@@ -401,7 +402,7 @@ export async function deliverDetails(d, env = process.env) {
 }
 
 export default async function handler(req, res, env = process.env, phase = COMMAND_PHASE) {
-  useNeon(env);
+  useDatabase(env);
   res.setHeader('Cache-Control', 'no-store');
   if (req.method === 'GET' && new URL(req.url || '/', 'http://local').searchParams.get('reliability') === '1') return res.status(200).json({ ok: true, enabled: phase === 'protocol' && env.LEAD_RELIABILITY_ENABLED === 'true', version: 1 });
   if (req.method !== 'POST') {

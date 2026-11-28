@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
 import { clientIp, createRateLimiter } from '../lib/request-ip.js';
 import { fetchWithRetry } from '../lib/fetch-retry.js';
-import { resolveGtmId } from '../site.config.mjs';
+import { resolveGtmId, vercelInsightsOn } from '../site.config.mjs';
 import hqHandler, { makeSession, buildSearchOr, cleanPatch, cleanNewLead, computeStats } from '../api/hq.js';
 import leadsHandler, { readDetailsToken, parseLead } from '../api/leads.js';
 import trackHandler from '../api/track.js';
@@ -272,7 +272,8 @@ test('built dist outputs fingerprinted assets, HQ subroutes, hardened robots.txt
   const sitemap = readFileSync('dist/sitemap.xml', 'utf8');
   assert.ok(sitemap.includes('<loc>https://www.callharbison.com/contact</loc><lastmod>2026-11-12</lastmod>'), 'pages without their own date use the current content date');
   assert.ok(sitemap.includes('<loc>https://www.callharbison.com/about</loc><lastmod>2026-11-05</lastmod>'), 'About records its substantive identity-link update');
-  assert.ok(home.includes('/_vercel/speed-insights/script.js'), 'zero-dependency Vercel Speed Insights script included');
+  // Vercel's own measurement scripts are only in a Vercel build (VERCEL set); a server build leaves them out.
+  assert.equal(home.includes('/_vercel/speed-insights/script.js'), vercelInsightsOn(process.env), 'Vercel Speed Insights only where Vercel serves it');
 });
 
 test('resolveGtmId rejects placeholders and accepts valid GTM container IDs', () => {
