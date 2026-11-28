@@ -11,11 +11,17 @@ writing its first daily backup; a backup restored with `scripts/restore-database
 exercised earlier with stand-ins for `sudo`, `systemctl` and `npm`. Not yet run: the systemd unit, the Caddyfile,
 Node 22 on Ubuntu, and the database on a Vultr disk. Read the first deploy's output carefully.
 
+The security settings added the same day (see [Security](#security)) were checked as far as a development machine
+allows: the content security policy against every built page and in a real browser (Firefox-based, headless); the
+deploy script's CI check and its restricted build settings with stand-ins for GitHub, `sudo`, `systemctl` and `npm`.
+Not checked: the new systemd lines (`systemd-analyze` could not run there) and the Caddyfile (no `caddy` program
+there). Run the checks in [After the first start](#after-the-first-start) on the server.
+
 ## What runs where
 
 | Piece | Job |
 | --- | --- |
-| Caddy, ports 80 and 443 | HTTPS certificates, compression, the redirect from `callharbison.com` to `www.callharbison.com` |
+| Caddy, ports 80 and 443 | HTTPS certificates, compression, the redirect from `callharbison.com` to `www.callharbison.com`, a 5 MB request limit, the access log (`/var/log/caddy/call-harbison-access.log`, no query strings, no cookies, addresses shortened) |
 | Node app, `127.0.0.1:3000` (`server.mjs`) | Serves `./dist` and the four API routes. Reads `vercel.json` for redirects, rewrites and headers (the file keeps its name). Opens the database before it answers anything |
 | `/var/lib/call-harbison` (the state folder) | Everything that changes: `db/` (the database), `backups/`, `analytics/`, `signing-key`. Releases never touch it |
 | Resend (optional) | Email alerts for new leads. Without it, a lead is stored and shows in `/hq`, nobody is emailed |
@@ -31,7 +37,9 @@ state folder.
 ## One-time setup
 
 Written for Ubuntu 24.04 (22.04 also works). Sign in as root (`ssh root@<server address>`, the password is on the
-server's page at Vultr) and run these. Replace `OWNER/REPO` with the GitHub repository.
+server's page at Vultr) and run these. Replace `OWNER/REPO` with the GitHub repository. First do
+[Lock the server down](#lock-the-server-down) in the Security section: it takes ten minutes and closes password
+sign-in before anything else is on the server.
 
 **1. Install Node 22, Caddy and git.** If either installer has changed, use the current instructions from
 nodesource.com and caddyserver.com/docs/install.
@@ -74,19 +82,24 @@ email alerts, also fill in `RESEND_API_KEY`, `LEAD_NOTIFY_EMAIL` and `LEAD_FROM_
 optional and explained there. One `KEY=value` per line, no spaces around `=`, and double quotes around a value that
 contains spaces.
 
-**5. Install the service and the Caddy config.**
+**5. Install the service, the Caddy config and the deploy script.** The deploy script runs as root, so root keeps
+its own copy (see [Updating the deploy script](#updating-the-deploy-script)).
 
 ```bash
 cp /srv/call-harbison/repo/deploy/call-harbison.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable call-harbison
 cp /srv/call-harbison/repo/deploy/Caddyfile /etc/caddy/Caddyfile
+install -d -o caddy -g caddy -m 750 /var/log/caddy
+caddy validate --config /etc/caddy/Caddyfile
+install -m 755 -o root -g root /srv/call-harbison/repo/deploy/deploy.sh /usr/local/sbin/call-harbison-deploy
 ```
 
-**6. Deploy for the first time, then open the firewall.**
+**6. Deploy for the first time, then open the firewall.** The deploy goes ahead only once GitHub shows that CI passed
+for the newest commit on `main` (the green tick next to it on GitHub).
 
 ```bash
-bash /srv/call-harbison/repo/deploy/deploy.sh
+call-harbison-deploy
 curl -s http://127.0.0.1:3000/healthz        # prints: ok
 systemctl reload caddy
 ufw allow OpenSSH && ufw allow 80,443/tcp && ufw enable
@@ -102,20 +115,41 @@ app can be checked on the server with `curl -s http://127.0.0.1:3000/ | head`.
 ## Deploying an update
 
 ```bash
-sudo bash /srv/call-harbison/current/deploy/deploy.sh
+sudo call-harbison-deploy
 ```
 
-The script fetches `main`, unpacks it into a new folder under `/srv/call-harbison/releases/`, installs, runs the tests
-with an empty environment (so they cannot reach the live database or send a message), builds, switches the `current`
-link, restarts the service and checks `/healthz`. The live site is not touched until the new release is ready. If the
-new release does not answer, the previous one is put back and the script exits with an error.
+The script fetches `main` and asks GitHub whether CI passed for that commit; if not (failed, still running, or never
+run), it stops before touching anything. Then it unpacks the commit into a new folder under
+`/srv/call-harbison/releases/`, installs without letting any package run an install script, runs the tests with an
+empty environment (so they cannot reach the live database or send a message), builds with only the public settings
+(below), switches the `current` link, restarts the service and checks `/healthz`. The live site is not touched until
+the new release is ready. If the new release does not answer, the previous one is put back and the script exits with
+an error.
+
+If GitHub cannot be reached, or its public API has hit its hourly limit for this server (60 questions an hour), the
+script stops and says so. Wait and try again, or deploy without the check: `sudo SKIP_CI_CHECK=1 call-harbison-deploy`.
 
 A release that brings a new database change (a new file in `supabase/migrations/`) applies it when it starts. If
 the change fails, nothing of it is applied, that release refuses to start, and the script puts the previous release
 back, so the site keeps running on the database as it was.
 
 Options: `BRANCH=other-branch`, `SKIP_TESTS=1` (CI already runs the tests on every push; useful on a server with
-little memory), `KEEP=5` (releases to keep).
+little memory), `KEEP=5` (releases to keep), `SKIP_CI_CHECK=1` (above). Put them after `sudo`, for example
+`sudo SKIP_TESTS=1 call-harbison-deploy`.
+
+### Updating the deploy script
+
+The deploy script runs as root. If it ran from the newest release, anyone who can push to `main` would decide what
+root runs next. So root runs its own copy, `/usr/local/sbin/call-harbison-deploy`, which only root can change, and a
+change to `deploy/deploy.sh` on GitHub does nothing until you copy it over on purpose. When a commit changes that
+file, read the change on GitHub first, then:
+
+```bash
+sudo install -m 755 -o root -g root /srv/call-harbison/repo/deploy/deploy.sh /usr/local/sbin/call-harbison-deploy
+```
+
+(`/srv/call-harbison/repo` is the copy of the repository the last deploy fetched.) The script warns when it is run
+from a copy that is not root's.
 
 ## Rolling back
 
@@ -135,19 +169,25 @@ the data itself, restore a backup (below).
 systemctl status call-harbison
 journalctl -u call-harbison -f          # one line per API request: method, path, status, time. No addresses, no bodies
 journalctl -u caddy -f
+sudo tail -f /var/log/caddy/call-harbison-access.log   # every request Caddy passed on: no query strings, no cookies
+journalctl -u call-harbison | grep '\[csp\]'          # anything a visitor's browser blocked (see Security)
 curl -s http://127.0.0.1:3000/healthz
 ls -l /var/lib/call-harbison/backups     # one file a day
 ```
 
 Changing a setting: edit `/etc/call-harbison.env`, then `sudo systemctl restart call-harbison`. Settings that are
-baked into the pages (`SITE_URL`, `GA_MEASUREMENT_ID`, `GTM_ID`, `METRICOOL_HASH`) need a deploy instead.
+baked into the pages need a deploy instead. They are also the only lines of the file the build ever sees: `SITE_URL`,
+`GA_MEASUREMENT_ID`, `GTM_ID`, `METRICOOL_HASH`, `ANALYTICS_DEFAULTS`, `VERCEL_INSIGHTS`, `ASSISTANT`,
+`ASSISTANT_PROVIDER_NAME` and four release switches the build checks (`LEAD_RELIABILITY_ENABLED`,
+`LEAD_RELIABILITY_DISPATCH_ENABLED`, `SELLER_COMMAND_RECOVERY_ENABLED`, `SELLER_OUTBOX_DISPATCH_ENABLED`).
+Passwords and keys never reach it.
 
 Other details of this setup:
 
 - **Routing rules.** `vercel.json` is the one place for redirects, rewrites and headers; `server.mjs` reads it at start.
 - **Visitor addresses.** The rate limits read `X-Real-IP`, which `server.mjs` sets from what Caddy reports and never
   from what a visitor sends. If the proxy is not on the same machine (Docker, a load balancer), set `TRUST_PROXY=private`.
-- **Request size.** Requests over 4.5 MB are refused.
+- **Request size.** Requests over 4.5 MB are refused (Caddy refuses anything over 5 MB before it reaches the app).
 - **Nothing else is scheduled.** The two worker scripts in `scripts/` are off and manual, and refuse to run against
   the server's own database (only the running site may open it).
 - **Compression and HTTPS** are Caddy's job. The Node app speaks plain HTTP on 127.0.0.1 only.
@@ -166,6 +206,12 @@ look after, and nothing listens on the network for it.
   A crash, a `kill` or a reboot loses nothing that was saved; the next start tidies up by itself, as any PostgreSQL
   does. A failing disk can still lose data, which is what the backups are for.
 - **Don't** copy, edit or delete files inside `db/` while the site runs. Use the backups.
+- **The engine is pinned, and young.** PGlite calls itself alpha software, and forcing each save to the disk relies
+  on a hook into it that a new version could break (the site warns at start if it does). Its version is fixed in
+  `package.json` and Dependabot is told to leave it alone, because a new version can also change how the files on
+  disk are written: the old folder and the old backups may then not open. Upgrading it is a job of its own: restore
+  a backup into the new version on another machine first. The daily backups and Vultr's disk backups are the safety
+  net.
 - `signing-key` next to it signs HQ sign-ins and the thank-you page links. Deleting it signs everyone out of HQ.
 
 ## Backups and restore
@@ -234,6 +280,173 @@ the server; earlier history stays at Harbison Standard.
 | `DATABASE_DIR`, `ANALYTICS_DIR` | no | Keep the database or the statistics somewhere other than the state folder |
 
 To use a hosted Supabase database instead of the server's own, set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+
+## Security
+
+What the site does by itself is listed at the end of this section. The rest only you can do; each step takes a few
+minutes.
+
+### Lock the server down
+
+Do this first, as root, before step 1 of the setup.
+
+**SSH keys only.** On your own computer, make a key if you have none (`ssh-keygen -t ed25519`) and copy it to the
+server (`ssh-copy-id root@<server address>`), or add it in Vultr under Account → SSH Keys before creating the server.
+Check that `ssh root@<server address>` now lets you in without a password. Then, on the server:
+
+```bash
+printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin prohibit-password\n' > /etc/ssh/sshd_config.d/10-keys-only.conf
+sshd -t && systemctl reload ssh
+```
+
+Keep that session open and try a new sign-in from a second window before you close it.
+
+**Firewall, twice.** On the server:
+
+```bash
+ufw default deny incoming && ufw allow OpenSSH && ufw allow 80,443/tcp && ufw enable
+```
+
+At Vultr, under Network → Firewall, make a group that allows TCP 22, 80 and 443 and nothing else, and link the
+server to it. If one of the two is ever misconfigured, the other still holds.
+
+**fail2ban** turns away addresses that keep guessing at SSH: `apt-get install -y fail2ban`. Its SSH rule is on by
+default; `fail2ban-client status sshd` shows it.
+
+**Automatic security updates, Node and Caddy included.** Ubuntu installs its own security updates every day; Node
+and Caddy come from their own package sources, which have to be added:
+
+```bash
+apt-get install -y unattended-upgrades needrestart
+nano /etc/apt/apt.conf.d/52call-harbison
+```
+
+Paste these lines, save:
+
+```
+Unattended-Upgrade::Origins-Pattern { "site=deb.nodesource.com"; "site=dl.cloudsmith.io"; };
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:30";
+```
+
+A running program keeps the old Node until it restarts. This makes `needrestart` restart the site (and anything else
+that needs it) right after an update: `echo '$nrconf{restart} = "a";' > /etc/needrestart/conf.d/50-auto.conf`. A
+kernel update reboots the server at 4:30 in the morning; the site starts by itself. To see what would be updated:
+`unattended-upgrade --dry-run --debug 2>&1 | grep -iE 'nodesource|cloudsmith|allowed'`.
+
+### Accounts
+
+- **Two-factor sign-in** (an authenticator app rather than text messages) on GitHub, Vultr, the domain registrar,
+  Resend (email), Twilio (texts), and Google Analytics or Metricool if you use them. Whoever gets into one of these
+  can take over the site or its mail.
+- **Protect `main` on GitHub.** Settings → Rules → Rulesets → New branch ruleset, target `main`: require a pull
+  request, require status checks to pass and add `test-and-build`, block force pushes and deletions. With the deploy
+  script's CI check, a commit that fails its tests never reaches the server.
+- The server's deploy key stays read-only ("Allow write access" off).
+
+### Secrets
+
+| What | Where |
+| --- | --- |
+| HQ password, Resend key, Twilio token, `MCP_TOKEN` and the other settings | `/etc/call-harbison.env` (root and the app user only) |
+| The key that signs HQ sign-ins and thank-you links | `/var/lib/call-harbison/signing-key` |
+| Every lead | `/var/lib/call-harbison/db` and `backups/` |
+| Read-only access to the GitHub repository | `/srv/call-harbison/.ssh` (the running site cannot read it) |
+
+Keep a copy of the settings file off the server, where only you can open it, such as a secure note in a password
+manager: `sudo cat /etc/call-harbison.env`, then paste. Update it whenever you change the file. Never email it.
+
+- **The HQ password leaked:** make a new one (below), put it in the settings file as `HQ_PASSWORD`, and
+  `sudo systemctl restart call-harbison`. That signs everyone out. Then look for sign-ins you do not recognise:
+  `journalctl -u call-harbison | grep '\[security\]'`.
+- **The MCP token leaked:** make a new one the same way, set it as `MCP_TOKEN`, restart, and give the new one to the
+  tool that uses it. The old one stops working at the restart.
+- **A Resend or Twilio key leaked:** revoke it in that service's dashboard, put the new one in the settings file,
+  restart.
+
+### The admin panel
+
+Use a long generated password, kept in your password manager:
+
+```bash
+openssl rand -base64 24
+```
+
+Once Google Analytics, Tag Manager or Metricool is switched on, those outside scripts run on the same address as
+`/hq`. Give HQ its own address, so they cannot reach it:
+
+1. At the domain registrar, add an A record (and AAAA if the server has IPv6) for `hq.callharbison.com` pointing at
+   the server.
+2. In `/etc/caddy/Caddyfile`, remove the `#` in front of the three `hq.callharbison.com` lines at the bottom, then
+   `sudo caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy`.
+3. Add `HQ_HOST=hq.callharbison.com` to `/etc/call-harbison.env`, then `sudo systemctl restart call-harbison`.
+4. Sign in at `https://hq.callharbison.com/hq`. On `www` the panel now answers "not found", and the links in lead
+   emails point to the new address.
+
+### HTTPS only (HSTS)
+
+Every response tells browsers to use only HTTPS for `callharbison.com` and every subdomain for two years
+(`includeSubDomains`), and says the domain may go on the list of HTTPS-only sites built into browsers (`preload`).
+Before you submit the domain at hstspreload.org: every subdomain you will ever use (`mail.`, `shop.`, a test site)
+must then have a working HTTPS certificate, and getting off that list takes months. The header works without the list.
+
+### Content security policy
+
+Each page tells the browser which scripts may run: the site's own files, the few small scripts written into the pages
+(each recognised by a fingerprint the build computes) and the tracking tools you configured; anything else, such as a
+script slipped in by an attacker, is blocked. A browser that blocks something reports it, and the site writes one line
+per report: `journalctl -u call-harbison | grep '\[csp\]'`.
+
+A line naming a tool you added on purpose means its address is missing from `lib/csp.js` (a small code change). A
+single odd line from one visitor is usually a browser extension. Tag Manager tags of the "Custom HTML" type, and its
+custom JavaScript variables, are blocked by this policy (they would need `'unsafe-inline'` and `'unsafe-eval'`): use
+Tag Manager's built-in tag types only. `/hq` and `/api` have stricter fixed policies (`vercel.json`).
+
+If the site ever goes behind a proxy service such as Cloudflare, Caddy must be told to trust it (`trusted_proxies` in
+the Caddyfile, and `{client_ip}` instead of `{remote_host}` in its two `header_up` lines), or every visitor looks like
+the same address to the rate limits.
+
+### After the first start
+
+```bash
+sudo systemd-analyze verify /etc/systemd/system/call-harbison.service    # prints nothing when all is well
+sudo systemd-analyze security call-harbison                              # an exposure score; lower is better
+sudo caddy validate --config /etc/caddy/Caddyfile
+curl -sI https://www.callharbison.com/ | grep -iE 'content-security-policy|strict-transport'
+curl -sI https://callharbison.com/ | grep -i strict-transport          # the redirect sends it too
+```
+
+In `systemd-analyze security`, lines marked ✗ are protections the unit does not use; most are left out on purpose
+(for example `MemoryDenyWriteExecute`, which Node cannot run with).
+
+### If the site does not start
+
+The protections in the service file were added on 2026-11-27 and have not run on a real server yet. If
+`systemctl status call-harbison` shows the site failing and `journalctl -u call-harbison -n 50` mentions
+"Operation not permitted" or "Permission denied":
+
+1. `sudo nano /etc/systemd/system/call-harbison.service`
+2. Put a `#` in front of one of the lines below `SystemCallArchitectures=native`, in this order:
+   `SystemCallFilter=` and `SystemCallErrorNumber=` together, then `ProtectProc=`, `InaccessiblePaths=`, `UMask=`,
+   `ProtectKernelLogs=`, `ProtectClock=`, `ProtectHostname=`, `RestrictRealtime=`. Save.
+3. `sudo systemctl daemon-reload && sudo systemctl restart call-harbison`, and check `systemctl status` again.
+4. Once it starts, the line you last commented out was the cause. Leave it out and tell the developer which one.
+
+### What the site does by itself, and what has been checked
+
+- Pages: an enforcing content security policy built from the pages at every build (the build stops if a page has an
+  inline `onclick` or similar), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`,
+  `Cross-Origin-Opener-Policy`, HSTS. `/hq` and `/api` also refuse to be framed or read by other sites.
+- Deploys: only a commit that passed CI, installed without package install scripts, built without the secrets, as
+  the app user, by a root-owned script. CI pins its GitHub Actions to exact versions, checks dependencies with
+  `npm audit`, and Dependabot proposes updates weekly.
+- The service: runs as its own user, can write only to its state folder, cannot see the deploy key, the clone or
+  other users' processes, and may make only ordinary system calls.
+- Checked on a development machine: the policy against every built page, English and Spanish, with and without
+  Google Analytics or Metricool, and in a real browser before and after the policy, pages identical; the deploy
+  script's CI check (passed, failed, still running, missing, GitHub unreachable, rate-limited) and that the build saw
+  no secret. Not checked until the server exists: the service file's new lines, the Caddyfile (including the access
+  log filter and the redirect's HSTS header), the automatic updates, and the CI check against the real GitHub.
 
 ## Moving the live domain from Vercel
 

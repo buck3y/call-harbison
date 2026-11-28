@@ -1,20 +1,73 @@
-# Caddy in front of the Node app: HTTPS certificates, compression, and the apex-to-www redirect.
-# Install as /etc/caddy/Caddyfile, then: sudo systemctl reload caddy
-# Change the two host names if the site moves to another domain (and set SITE_URL to match).
+# Caddy in front of the Node app: HTTPS certificates, compression, the apex-to-www redirect, a request size limit and
+# an access log that keeps no query string and no cookie.
+# Install as /etc/caddy/Caddyfile, check it with `caddy validate --config /etc/caddy/Caddyfile`, then: sudo systemctl reload caddy
+# Change the host names if the site moves to another domain (and set SITE_URL to match).
+# Not yet run on a real server, and not validated by a caddy binary: run `caddy validate` before the first reload.
 
-callharbison.com {
-	redir https://www.callharbison.com{uri} permanent
-}
-
-www.callharbison.com {
+# Everything a site block that reaches the app needs. Imported by www below (and by the HQ block, if it is turned on).
+(app) {
 	encode zstd gzip
+
+	# Caddy announces itself in a Server header; nothing needs to know.
+	header -Server
+
+	# The app refuses bodies over 4.5 MB itself; this stops larger ones before they reach it.
+	request_body {
+		max_size 5MB
+	}
+
+	# One line per request in /var/log/caddy/call-harbison-access.log, kept 30 days. Hand-off links carry a street
+	# address in the query string, so no query string is kept, nor the Referer (which repeats it), cookies or
+	# sign-in headers. Visitor addresses are cut to their network (the privacy page says raw IP addresses are not kept).
+	log {
+		output file /var/log/caddy/call-harbison-access.log {
+			roll_size 50MiB
+			roll_keep 5
+			roll_keep_for 720h
+		}
+		format filter {
+			request>uri regexp [?].* ?REDACTED
+			request>headers>Referer delete
+			request>headers>Cookie delete
+			request>headers>Authorization delete
+			request>headers>X-Forwarded-For delete
+			resp_headers>Set-Cookie delete
+			request>remote_ip ip_mask 24 48
+			request>client_ip ip_mask 24 48
+		}
+	}
 
 	reverse_proxy 127.0.0.1:3000 {
 		# Keep trying for a few seconds while the app restarts during a deploy.
 		lb_try_duration 5s
 
-		# The app decides who a visitor is from these headers, so a visitor must not be able to set them.
+		# The app decides who a visitor is from these headers, so a visitor must not be able to set them:
+		# both carry the address of whoever connected to Caddy, and the Vercel ones are removed.
 		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
 		header_up -X-Vercel-Forwarded-For
+		header_up -X-Vercel-Ip-Country
+		header_up -X-Vercel-Ip-Country-Region
+		header_up -X-Vercel-Ip-City
 	}
 }
+
+callharbison.com {
+	# Caddy answers here itself, so the app's headers never reach this redirect; the HSTS preload list requires
+	# the apex to send Strict-Transport-Security too.
+	header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+	header -Server
+	redir https://www.callharbison.com{uri} permanent
+}
+
+www.callharbison.com {
+	import app
+}
+
+# HQ on its own address. Turn this on once Google Analytics, Tag Manager or Metricool is switched on, so the admin
+# panel lives where those outside scripts cannot reach it: add a DNS record for hq.callharbison.com, remove the "#"
+# below, set HQ_HOST=hq.callharbison.com in /etc/call-harbison.env, restart the app and reload Caddy (docs/VPS.md).
+#
+# hq.callharbison.com {
+# 	import app
+# }

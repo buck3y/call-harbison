@@ -47,6 +47,7 @@ api/track.js             ← first-party analytics + CSP report sink
 lib/local-database.js    ← the site's own database (PostgreSQL inside the Node process), its lock, backups, restore
 lib/postgres-rest.js     ← turns the handlers' database requests into SQL
 lib/analytics-store.js   ← the visitor statistics kept on the server
+lib/csp.js               ← the content security policy: built from the finished pages (dist/csp.json), sent by server.mjs
 lib/                     ← also: intake normalizer, IP/rate-limit helper, retry helper, CSV/JSON importer
 server.mjs               ← the production server: pages, APIs, database, shutdown
 build.mjs                ← generates ./dist (pages, fingerprinted assets, sitemap.xml, robots.txt, llms.txt)
@@ -57,7 +58,7 @@ deploy/                  ← systemd unit, Caddy config, release script
 test/                    ← `npm test`
 brand/                   ← logo originals (not deployed)
 docs/                    ← shared CRM runbook, project record, sitemap overview, family-funnel notes
-.github/workflows/ci.yml ← runs tests + build on every push
+.github/workflows/ci.yml ← runs tests + build on every push (actions pinned to commits, npm audit); dependabot.yml: weekly updates
 ```
 
 ## Branches
@@ -78,12 +79,15 @@ Set `HQ_PASSWORD` in your shell to sign in to `/hq` locally, or use `npm run dev
 
 [docs/VPS.md](docs/VPS.md) covers a Vultr VPS with Ubuntu, from an empty server to a live site: the systemd unit, Caddy for HTTPS, the release script (`deploy/deploy.sh` builds each release in its own folder, switches over, and rolls back if the new one does not answer), the settings file, backups and restore. The settings file needs only `SITE_URL` and `HQ_PASSWORD`; email alerts are optional.
 
+Security on the server is in the [Security section of docs/VPS.md](docs/VPS.md#security): what only the owner can do (SSH keys, firewall, automatic updates, two-factor sign-in, branch protection, HQ on its own address) and what the site does itself. In short: every public page carries an enforcing content security policy that the build computes from the pages (each inline script allowed by its hash; the build stops on an inline `onclick`), `/hq` and `/api` get stricter fixed policies from `vercel.json`, and the deploy script runs as a root-owned copy that deploys only commits that passed CI and builds without the secrets.
+
 A lead counts as received only once it is in the database. If it cannot be stored, `/api/leads` answers `502` and the visitor is asked to call, rather than being told it was sent. A failed email alert after a successful save is recorded on the lead's HQ activity timeline.
 
 ## Before launch checklist
 
 - [ ] Set `SITE_URL` to the real domain
 - [ ] Set `HQ_PASSWORD`, submit a test lead and find it in `/hq`
+- [ ] Work through the [Security section of docs/VPS.md](docs/VPS.md#security): SSH keys only, firewall, automatic updates, two-factor sign-in everywhere, branch protection on `main`
 - [ ] Swap Unsplash stock photos (in `src/content.mjs`) for real local project photos
 - [ ] Review copy, FAQ answers, and the Privacy/Terms pages (have an attorney review — especially the SMS consent language)
 - [ ] Submit `sitemap.xml` in Google Search Console; set up Google Business Profile

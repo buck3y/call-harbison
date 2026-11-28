@@ -1,0 +1,17 @@
+# Weekly pull requests for outdated or vulnerable dependencies. CI runs on each; merge only when it passes.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    ignore:
+      # The database engine is upgraded by hand: a new version can change the files on disk, so that the server's
+      # database and its backups no longer open (docs/VPS.md, "The database").
+      - dependency-name: "@electric-sql/pglite"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

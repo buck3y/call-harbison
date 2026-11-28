@@ -1128,6 +1128,11 @@ document.querySelectorAll('form[data-tool="paperwork"]').forEach((form) => {
   render();
 });
 
+// ---------- Print buttons (the partner guide): a listener, because the content security policy runs no inline onclick ----------
+document.querySelectorAll('[data-print-page]').forEach((button) => button.addEventListener('click', () => {
+  if (typeof window !== 'undefined' && typeof window.print === 'function') window.print();
+}));
+
 // ---------- Stepped forms: the address step stops on a ZIP outside Kern County ----------
 document.querySelectorAll('form[data-steps]').forEach((form) => {
   const guard = (e) => {

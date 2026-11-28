@@ -38,6 +38,22 @@ RestrictSUIDSGID=true
 LockPersonality=true
 CapabilityBoundingSet=
 SystemCallArchitectures=native
+ProtectClock=true
+ProtectHostname=true
+ProtectKernelLogs=true
+# Other users' processes are hidden. Not ProcSubset=pid: the database lock reads /proc/sys/kernel/random/boot_id.
+ProtectProc=invisible
+RestrictRealtime=true
+# Only the system calls an ordinary service makes (this includes starting the one short-lived node child that creates
+# the database, and fsync). A call outside the list fails with EPERM instead of killing the process, so Node can fall
+# back (it tries io_uring, for example). Not MemoryDenyWriteExecute: V8 and the WebAssembly database need it.
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# Files the app creates (database, backups, statistics, signing key) are readable by the app user only.
+UMask=0077
+# The deploy key and the git clone are the deploy script's business, not the running app's.
+InaccessiblePaths=-/srv/call-harbison/.ssh -/srv/call-harbison/repo
+# If the service does not start after a change here, see docs/VPS.md ("If the site does not start").
 
 [Install]
 WantedBy=multi-user.target

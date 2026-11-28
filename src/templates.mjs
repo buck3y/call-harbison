@@ -1674,7 +1674,7 @@ export function partnerGuidePage() {
     <h2 class="prose-h">Talk it through with a local, licensed agent</h2>
     <p>${esc(site.agent)}, ${esc(site.name)}<br>REALTOR®, DRE #${esc(site.dre)}<br>Call or text <strong>${esc(site.phone)}</strong>, or email ${esc(site.email)}<br>Online: <strong>${esc(site.url.replace(/^https?:\/\//, ''))}/family</strong></p>
     <p class="disclaimer">You choose whether to contact us. We never ask for medical information. On a direct purchase, Harbison is the buyer and discloses its license status in writing; you’re welcome to have anyone you trust review an offer.</p>
-    <p class="no-print"><button class="btn btn-gold" type="button" onclick="print()">Print this guide</button></p>
+    <p class="no-print"><button class="btn btn-gold" type="button" data-print-page>Print this guide</button></p>
   </div>
 </section>`
   );

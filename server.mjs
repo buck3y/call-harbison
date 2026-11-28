@@ -14,6 +14,7 @@ import trackHandler from './api/track.js';
 import mcpHandler from './api/mcp.js';
 import { flushAnalytics } from './lib/analytics-store.js';
 import { closeLocalDatabase, databaseMode, openLocalDatabase, startDailyBackups, useDatabase } from './lib/local-database.js';
+import { applyPublicPolicy } from './lib/csp.js';
 
 // Writes the site analytics kept on this server to disk. Called before the process exits.
 export { flushAnalytics };
@@ -198,6 +199,9 @@ export function createHandler({
     for (const rule of routing.headers) {
       if (rule.match.test(pathname)) for (const [key, value] of rule.headers) res.setHeader(key, value);
     }
+    // The enforcing policy build.mjs wrote for the public pages (dist/csp.json, lib/csp.js) replaces the report-only
+    // one from vercel.json; /hq and /api keep their own. Without csp.json nothing changes.
+    applyPublicPolicy(res, pathname, distRoot);
 
     if (pathname === '/healthz') return plain(res, 200, 'ok');
     if (/\/{2,}/.test(rawPath)) return redirect(res, 308, rawPath.replace(/\/{2,}/g, '/') + search);

@@ -1,8 +1,10 @@
 // Builds the static site into ./dist. Run: npm run build
-import { rmSync, mkdirSync, writeFileSync, cpSync, readFileSync, renameSync, existsSync } from 'node:fs';
+// BUILD_OUT=<folder> builds into another folder instead (tests and dry runs; ./dist is what the preview server reads).
+import { rmSync, mkdirSync, writeFileSync, cpSync, readFileSync, renameSync, existsSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import site from './site.config.mjs';
+import { sitePolicy } from './lib/csp.js';
 import { areas, guides, faqs, situations, contentDate } from './src/templates.mjs';
 import { buildPages } from './src/pages.mjs';
 import { decoratePage, esPath, loadDictionary, translatePage } from './src/i18n/translate.mjs';
@@ -12,7 +14,7 @@ import { COMMAND_PHASE, assertCommandBuild } from './lib/command-phase.js';
 assertCommandBuild(process.env);
 
 // Build into a fresh folder and swap it in at the end, so a server reading ./dist never sees a half-built site.
-const target = 'dist';
+const target = process.env.BUILD_OUT || 'dist';
 const out = `${target}.next`;
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
@@ -171,10 +173,25 @@ writeFileSync(
   }, null, 2)
 );
 
+// Content security policy: read back every page as written, allow each inline script by its hash, and refuse what no
+// policy should allow (inline event handlers, javascript: URLs, inline scripts under /hq). server.mjs sends the result.
+const htmlFiles = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+  const path = join(dir, entry.name);
+  return entry.isDirectory() ? htmlFiles(path) : (entry.name.endsWith('.html') ? [path] : []);
+});
+const csp = sitePolicy(htmlFiles(out).map((path) => ({ file: relative(out, path), html: readFileSync(path, 'utf8') })), site);
+if (csp.problems.length) {
+  console.error(`Build stopped: the content security policy would block ${csp.problems.length === 1 ? 'this' : 'these'} (use a listener in static/script.js instead):`);
+  for (const problem of csp.problems) console.error(`  ${problem}`);
+  rmSync(out, { recursive: true, force: true });
+  process.exit(1);
+}
+writeFileSync(join(out, 'csp.json'), `${JSON.stringify({ public: csp.policy }, null, 2)}\n`);
+
 const previous = `${target}.old`;
 rmSync(previous, { recursive: true, force: true });
 if (existsSync(target)) renameSync(target, previous);
 renameSync(out, target);
 rmSync(previous, { recursive: true, force: true });
 
-console.log(`Built ${pages.length} pages into ./${target}`);
+console.log(`Built ${pages.length} pages into ${target === 'dist' ? './dist' : target} (content security policy: ${csp.hashes.length} inline script hashes)`);
