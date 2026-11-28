@@ -25,12 +25,44 @@ const pctText = (ratio) => {
   if (p >= 0.05) return `${p.toFixed(1)}%`;
   return p > 0 ? '<0.1%' : '0%';
 };
-const minutesText = (value) => {
-  const m = Math.max(0, Math.round(Number(value) || 0));
-  if (m < 60) return `${m} min`;
-  if (m < 1440) return `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
-  const d = Math.round(m / 1440);
-  return `${d} day${d === 1 ? '' : 's'}`;
+// A duration in minutes, in the clock's own units ("4 h 48 min", "2 days 3 h").
+const minutesText = (value) => clockParts(Math.max(0, Math.round(Number(value) || 0))).map(([n, u]) => `${n} ${u}`).join(' ');
+// ---------- The waiting clock ----------
+// How long a lead has waited for a first call (or a follow-up has been due), set the same way wherever a lead
+// appears: figures in ink, units small. Past an hour it turns amber; past the 24 hours the site promises, red.
+const CLOCK_SLOW = 60;
+const CLOCK_LATE = 1440;
+const minutesSince = (iso) => Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000)) || 0;
+const clockParts = (m) => {
+  if (m < 60) return [[m, 'min']];
+  if (m < 1440) return [[Math.floor(m / 60), 'h'], ...(m % 60 ? [[m % 60, 'min']] : [])];
+  const d = Math.floor(m / 1440);
+  const h = Math.floor((m % 1440) / 60);
+  return [[d, d === 1 ? 'day' : 'days'], ...(h ? [[h, 'h']] : [])];
+};
+const clockInner = (m) => clockParts(m).map(([n, u]) => `<b>${n}</b><i>${u}</i>`).join('');
+const clockTone = (m) => (m >= CLOCK_LATE ? ' late' : m >= CLOCK_SLOW ? ' slow' : '');
+const clockHtml = (iso) => {
+  if (!iso || Number.isNaN(Date.parse(iso))) return '';
+  const m = minutesSince(iso);
+  return `<span class="clock${clockTone(m)}" data-since="${esc(iso)}">${clockInner(m)}</span>`;
+};
+// Plain text of the same duration, for "received 5 h ago" lines and accessible names.
+const agoText = (iso) => `${clockParts(minutesSince(iso)).map(([n, u]) => `${n} ${u}`).join(' ')} ago`;
+function tickClocks() {
+  document.querySelectorAll('.clock[data-since]').forEach((el) => {
+    const m = minutesSince(el.dataset.since);
+    el.className = `clock${clockTone(m)}`;
+    el.innerHTML = clockInner(m);
+  });
+}
+setInterval(tickClocks, 30000);
+// The town from "202 Demo St, Tehachapi, CA 93561".
+const townOf = (address) => {
+  const parts = String(address || '').split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 3) return parts[parts.length - 2];
+  if (parts.length === 2) return parts[1].replace(/\b[A-Z]{2}\b\s*\d{5}(-\d{4})?$/, '').trim() || parts[1];
+  return '';
 };
 const when = (iso, withTime = true) => {
   if (!iso) return '—';
@@ -41,12 +73,7 @@ const when = (iso, withTime = true) => {
 const dayDate = (day) => new Date(`${String(day).slice(0, 10)}T12:00:00Z`);
 const dayShort = (day) => dayDate(day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const dayLong = (day) => dayDate(day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
-const ago = (iso) => {
-  const m = Math.round((Date.now() - Date.parse(iso)) / 60000);
-  if (m < 60) return `${m}m ago`;
-  if (m < 1440) return `${Math.round(m / 60)}h ago`;
-  return `${Math.round(m / 1440)}d ago`;
-};
+const ago = (iso) => agoText(iso);
 const toLocalInput = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
@@ -121,8 +148,22 @@ function applyAnalyticsTabs(sources) {
   const hasCall = !known || Boolean(sources.call_harbison);
   $('#tab-analytics').hidden = !hasStandard;
   $('#tab-analytics-call').hidden = !hasCall;
-  $('#tab-analytics-call').textContent = known && hasCall && !hasStandard ? 'Website stats' : 'Call Harbison stats';
+  // One site is simply "Website"; two are named by brand.
+  $('#tab-analytics-call').textContent = hasCall && !hasStandard ? 'Website' : 'Call Harbison site';
+  $('#tab-analytics').textContent = hasStandard && !hasCall ? 'Website' : 'Harbison Standard site';
 }
+
+// ---------- phone menu ----------
+// Below 700px the sections fold into one Menu button that opens a list under the bar.
+function setMenu(open) {
+  $('#top').classList.toggle('menu-open', open);
+  $('#hq-menu').setAttribute('aria-expanded', String(open));
+}
+$('#hq-menu').addEventListener('click', () => setMenu($('#hq-menu').getAttribute('aria-expanded') !== 'true'));
+document.addEventListener('click', (e) => { if (!e.target.closest('#top')) setMenu(false); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('#hq-menu').getAttribute('aria-expanded') === 'true') { setMenu(false); $('#hq-menu').focus(); }
+});
 function showApp(name, enabled = false, analyticsSources) {
   operationsEnabled = enabled;
   applyAnalyticsTabs(analyticsSources);
@@ -170,6 +211,7 @@ function openTab(name, navigate = true) {
     if (!navigate) syncUrl({ tab: name, replace: true });
   }
   const analytics = name.startsWith('analytics-');
+  setMenu(false);
   document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   // On narrow screens the tab row scrolls sideways: bring the current tab into view.
   const strip = $('.tabs');
@@ -416,45 +458,65 @@ window.addEventListener('resize', () => {
 // Every n-th index counted back from the newest, so the latest point always has a date under it.
 const tickEvery = (n, count) => { const step = Math.max(1, Math.ceil(n / count)); const out = []; for (let i = n - 1; i >= 0; i -= step) out.push(i); return out; };
 
-// Ranked list: name and figure on one line, a thin bar under them. rows: [{ label, value }]
-function rankList(el, rows, { total = 0, limit = 8, barClass = '' } = {}) {
+// ---------- ledgers ----------
+// Label left, figure right, rows on hairlines and one ink rule above a total: numbers set the way a settlement
+// statement sets them. rows: [{ key, label, value }]
+function ledger(el, rows, { total = null, stageLinks = false } = {}) {
   if (!el) return;
   if (!rows.length) { el.innerHTML = '<p class="empty">Nothing yet.</p>'; return; }
-  const max = Math.max(1, ...rows.map((r) => r.value));
-  const item = (r, i) => `<li${i >= limit ? ' hidden' : ''}><span class="k" title="${esc(r.label)}">${esc(r.label)}</span><span class="v">${fmt(r.value)}</span>${total ? `<span class="p">${pctText(r.value / total)}</span>` : ''}${r.value > 0 ? `<span class="b${barClass ? ` ${barClass}` : ''}" style="width:${((r.value / max) * 100).toFixed(2)}%"></span>` : ''}</li>`;
-  el.innerHTML = `<ol class="rank">${rows.map(item).join('')}</ol>${rows.length > limit ? `<button type="button" class="textbtn rank-more" aria-expanded="false">Show all ${fmt(rows.length)}</button>` : ''}`;
-  el.querySelector('.rank-more')?.addEventListener('click', (e) => {
-    const open = e.currentTarget.getAttribute('aria-expanded') !== 'true';
-    el.querySelectorAll('.rank li').forEach((li, i) => { if (i >= limit) li.hidden = !open; });
-    e.currentTarget.setAttribute('aria-expanded', String(open));
-    e.currentTarget.textContent = open ? 'Show fewer' : `Show all ${fmt(rows.length)}`;
-  });
+  const label = (r) => (stageLinks && r.key ? `<button type="button" class="ledger-go" data-stage="${esc(r.key)}">${esc(r.label)}</button>` : esc(r.label));
+  el.innerHTML = `<table class="ledger"><tbody>${rows.map((r) => `<tr><th scope="row">${label(r)}</th><td>${fmt(r.value)}</td></tr>`).join('')}${total ? `<tr class="total"><th scope="row">${esc(total.label)}</th><td>${fmt(total.value)}</td></tr>` : ''}</tbody></table>`;
 }
-// Counts keyed by name, largest first (or in the given order when `order` is passed).
-const bars = (el, obj, labels = {}, order = null) => {
+// Counts keyed by name: largest first, or in the given order.
+const countRows = (obj, labels = {}, order = null) => {
   const entries = Object.entries(obj || {});
   const sorted = order
     ? [...order.filter((k) => k in (obj || {})).map((k) => [k, obj[k]]), ...entries.filter(([k]) => !order.includes(k))]
     : entries.sort((a, b) => b[1] - a[1]);
-  rankList(el, sorted.map(([k, n]) => ({ label: labels[k] || capFirst(k.replace(/_/g, ' ')), value: Number(n) || 0 })));
+  return sorted.map(([k, n]) => ({ key: k, label: labels[k] || capFirst(String(k).replace(/_/g, ' ')), value: Number(n) || 0 }));
 };
 
-// ---------- dashboard ----------
-const figure = ({ value, label, go, big, state, sub }) => `<div class="fig kpi${big ? ' big' : ''}"${go ? ` data-go="${go}" role="button" tabindex="0"` : ''}><div class="fig-l">${esc(label)}</div><div class="fig-v">${esc(value)}</div><div class="fig-m">${state ? `<div class="fig-s"><span class="dw ${state[0]}">${esc(state[1])}</span></div>` : ''}${sub ? `<div class="fig-s">${esc(sub)}</div>` : ''}</div></div>`;
+// ---------- dashboard: the day sheet ----------
+// With seller operations on, a call starts from the inquiry once response permission is checked, so the call
+// sheet shows the number without making it a link.
+const phoneCell = (l, town) => {
+  const tel = digits(l.phone);
+  const shown = l.phone
+    ? (tel && !operationsEnabled ? `<a href="tel:${esc(tel)}">${esc(l.phone)}</a>` : esc(l.phone))
+    : (l.email ? `<span class="muted">${esc(l.email)}</span>` : '');
+  return `<span class="c-phone">${shown}<span class="town-inline">${town ? `${shown ? ', ' : ''}${esc(town)}` : ''}</span></span>`;
+};
+const sheetRow = (l, clockCell, sub) => {
+  const town = townOf(l.address);
+  return `<li data-id="${esc(l.id)}"><span class="c-clock">${clockCell}</span><span class="c-name"><button type="button">${esc(l.name)}</button>${sub ? `<span>${esc(sub)}</span>` : ''}</span>${phoneCell(l, town)}<span class="c-town">${esc(town || '—')}</span><span class="c-what">${esc(l.situation || '')}</span></li>`;
+};
+const dayName = (iso) => {
+  const d = new Date(iso);
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const diff = Math.floor((new Date(d).setHours(0, 0, 0, 0) - start) / 864e5);
+  return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+};
+const timeClock = (iso) => {
+  const [t, ap] = new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).split(' ');
+  return `<span class="clock"><b>${esc(t)}</b><i>${esc(ap || '')}</i></span>`;
+};
 
 async function loadDash() {
   let d;
   try { d = await api('stats'); } catch (e) { $('#kpis').innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
   const s = d.stats;
+  $('#dash-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  // One quiet line of figures; the call sheet below carries the two that need action.
+  const item = (label, value, go, after = '') => `<span class="kpi"${go ? ` data-go="${go}" role="button" tabindex="0"` : ''}>${esc(label)} <b>${esc(value)}</b>${after ? ` ${esc(after)}` : ''}</span>`;
   $('#kpis').innerHTML = [
-    figure({ value: fmt(s.uncontacted), label: 'Waiting for first contact', go: 'new', big: true, state: s.uncontacted > 0 ? ['critical', 'Needs a call'] : ['good', 'Everyone contacted'] }),
-    figure({ value: fmt(s.followupsDue), label: 'Follow-ups due', go: 'followups', big: true, state: s.followupsDue > 0 ? ['critical', 'Due now'] : ['good', 'None due'] }),
-    figure({ value: fmt(s.newToday), label: 'New today', go: 'new' }),
-    figure({ value: fmt(s.new7), label: 'New, last 7\u00a0days', go: 'all' }),
-    figure({ value: fmt(s.openPipeline), label: 'Open pipeline', go: 'open' }),
-    figure({ value: fmt(s.appointments7), label: 'Appointments, next 7\u00a0days', go: 'open' }),
-    figure({ value: s.medianMinutesToContact == null ? '—' : minutesText(s.medianMinutesToContact), label: 'Median time to first contact, 30\u00a0days' }),
-    figure({ value: money(s.grossProfit90), label: 'Gross profit, 90\u00a0days', go: 'closed', sub: `${fmt(s.won90)} closed` }),
+    item('New today', fmt(s.newToday), 'new'),
+    item('New, last 7 days', fmt(s.new7), 'all'),
+    item('Open', fmt(s.openPipeline), 'open'),
+    item('Appointments, next 7 days', fmt(s.appointments7), 'open'),
+    item('Median first call, 30 days', s.medianMinutesToContact == null ? '—' : minutesText(s.medianMinutesToContact)),
+    item('Gross profit, 90 days', money(s.grossProfit90), 'closed', `from ${fmt(s.won90)} closed`),
   ].join('');
   document.querySelectorAll('.kpi[data-go]').forEach((k) => {
     const go = () => { setView(k.dataset.go, false); openTab('leads'); };
@@ -462,32 +524,60 @@ async function loadDash() {
     k.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
 
+  // The call sheet: longest wait first, then follow-ups due, then appointments.
+  $('#count-waiting').textContent = fmt(s.uncontacted);
+  $('#count-followups').textContent = fmt(s.followupsDue);
+  $('#waiting').innerHTML = d.waiting.length
+    ? d.waiting.map((l) => sheetRow(l, `${clockHtml(l.created_at)}<span class="w">waiting</span>`, [BRANDS[brandOf(l)], l.channel && channelName(l.channel)].filter(Boolean).join(', '))).join('')
+      + (s.uncontacted > d.waiting.length ? `<li class="more-note note">The ${fmt(d.waiting.length)} longest waits of ${fmt(s.uncontacted)}</li>` : '')
+    : '<li class="empty">Everyone has had a first call</li>';
+  $('#upcoming').innerHTML = d.upcoming.length
+    ? d.upcoming.map((l) => sheetRow(l, `${timeClock(l.appointment_at)}<span class="w">${esc(dayName(l.appointment_at))}</span>`, BRANDS[brandOf(l)])).join('')
+    : '<li class="empty">No appointments booked</li>';
+  loadFollowupsDue(s.followupsDue);
+
   const weeks = s.weekly || [];
   const lastWeek = weeks.length - 1;
   const peakWeek = weeks.reduce((best, w, i) => (w.leads > (weeks[best]?.leads ?? -1) ? i : best), 0);
+  // Each bucket is the 7 days ending now minus whole weeks; name its last day in local time (the reply's
+  // weekEnding is a UTC date, a day ahead in the evening here).
+  const weekEnd = (i) => new Date(Date.now() - (lastWeek - i) * 7 * 864e5).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   $('#spark-l').innerHTML = weeks.length ? `<span>Last ${weeks.length} weeks</span><span class="lg"><i class="lg-bar"></i>Earlier weeks</span><span class="lg"><i class="lg-bar lead"></i>Latest week</span>` : '';
   drawChart($('#spark'), {
     kind: 'columns', height: 240, points: weeks, value: (w) => w.leads,
-    label: `Leads per week, ${weeks.length} weeks to ${weeks.length ? dayShort(weeks[lastWeek].weekEnding) : ''}`,
+    label: `Leads per week, ${weeks.length} weeks to ${weeks.length ? weekEnd(lastWeek) : ''}`,
     markClass: (w, i) => (i === lastWeek ? 'm-lead' : 'm-series'),
-    xTicks: (W, n) => tickEvery(n, W < 480 ? 3 : 4), xLabel: (w) => dayShort(w.weekEnding),
+    xTicks: (W, n) => tickEvery(n, W < 480 ? 3 : 4), xLabel: (w, i) => weekEnd(i),
     labelIdx: [lastWeek, peakWeek],
-    tip: (w, i) => ({ title: `${i === lastWeek ? 'Latest week, ' : ''}7 days to ${dayShort(w.weekEnding)}`, rows: [{ value: fmt(w.leads), label: w.leads === 1 ? 'lead' : 'leads', key: i === lastWeek ? 'lead' : 'series' }] }),
-    table: { caption: 'Leads per week', head: ['Week ending', 'Leads'], rows: weeks.map((w) => [dayShort(w.weekEnding), fmt(w.leads)]) },
+    tip: (w, i) => ({ title: `${i === lastWeek ? 'Latest week, ' : ''}7 days to ${weekEnd(i)}`, rows: [{ value: fmt(w.leads), label: w.leads === 1 ? 'lead' : 'leads', key: i === lastWeek ? 'lead' : 'series' }] }),
+    table: { caption: 'Leads per week', head: ['Week ending', 'Leads'], rows: weeks.map((w, i) => [weekEnd(i), fmt(w.leads)]) },
     empty: 'No leads yet.',
   });
 
-  $('#waiting').innerHTML = d.waiting.length
-    ? d.waiting.map((l) => `<li data-id="${esc(l.id)}"><button type="button" class="row-btn"><span><strong>${esc(l.name)}</strong><span class="sub">${esc(leadSubline(l))}</span></span><span class="t due">${esc(minutesText(l.minutes_waiting))}</span></button></li>`).join('')
-    : '<li class="empty">Everyone has been contacted.</li>';
-  $('#upcoming').innerHTML = d.upcoming.length
-    ? d.upcoming.map((l) => `<li data-id="${esc(l.id)}"><button type="button" class="row-btn"><span><strong>${esc(l.name)}</strong><span class="sub">${esc(leadSubline(l))}</span></span><span class="t">${esc(when(l.appointment_at))}</span></button></li>`).join('')
-    : '<li class="empty">No appointments scheduled.</li>';
-  bars($('#by-status'), s.byStatus, STAGES, Object.keys(STAGES));
-  bars($('#by-channel'), s.byChannel, CHANNELS);
-  bars($('#by-route'), s.byRoute, ROUTES);
-  bars($('#by-brand'), s.byBrand, BRANDS);
+  // Where each seller stands: open stages in pipeline order, the open total under an ink rule.
+  ledger($('#by-status'), countRows(s.byStatus, STAGES, Object.keys(STAGES)), { total: { label: 'Open', value: s.openPipeline }, stageLinks: true });
+  const bySource = countRows(s.byChannel, CHANNELS);
+  ledger($('#by-channel'), bySource, { total: bySource.length ? { label: 'Leads', value: bySource.reduce((n, r) => n + r.value, 0) } : null });
+  ledger($('#by-route'), countRows(s.byRoute, ROUTES));
+  ledger($('#by-brand'), countRows(s.byBrand, BRANDS));
   loadHealth();
+}
+
+// Follow-ups due come from the leads list (the same view as Leads, Follow-ups due), oldest due first.
+let followupsRequest = 0;
+async function loadFollowupsDue(count) {
+  const request = ++followupsRequest;
+  const el = $('#followups-due');
+  try {
+    const r = await api('leads', { params: { view: 'followups', limit: '8' } });
+    if (request !== followupsRequest) return;
+    el.innerHTML = r.leads.length
+      ? r.leads.map((l) => sheetRow(l, `${clockHtml(l.next_followup)}<span class="w">overdue</span>`, STAGES[l.status] || l.status)).join('')
+        + (count > r.leads.length ? `<li class="more-note note">The ${fmt(r.leads.length)} oldest of ${fmt(count)}</li>` : '')
+      : '<li class="empty">No follow-ups due</li>';
+  } catch (e) {
+    if (request === followupsRequest) el.innerHTML = `<li class="empty">${esc(e.message)}</li>`;
+  }
 }
 
 async function loadHealth() {
@@ -504,7 +594,7 @@ async function loadHealth() {
         : line('good', 'Email alerts', 'Ready', `Sends to ${h.email.recipients.join(', ')}`);
     el.classList.remove('muted');
     el.innerHTML = `<ul>${[
-      line('good', 'Supabase CRM', 'Connected'),
+      line('good', 'Database', 'Connected', h.crm?.label || ''),
       email,
       h.standardBridge.configured ? line('good', 'Standard bridge', 'Active') : line('warning', 'Standard bridge', 'Not set'),
       h.webhook.configured ? line('good', 'Webhook', 'Active') : line('', 'Webhook', 'Off', 'Optional'),
@@ -532,10 +622,21 @@ $('#test-alert-btn')?.addEventListener('click', async (e) => {
     btn.disabled = false;
   }
 });
-['#waiting', '#upcoming'].forEach((sel) => $(sel).addEventListener('click', (e) => {
+['#waiting', '#upcoming', '#followups-due'].forEach((sel) => $(sel).addEventListener('click', (e) => {
+  if (e.target.closest('a')) return; // the phone number dials; the rest of the row opens the lead
   const li = e.target.closest('li[data-id]');
   if (li) openLead(li.dataset.id);
 }));
+document.querySelectorAll('[data-go-view]').forEach((b) => b.addEventListener('click', () => { setView(b.dataset.goView, false); openTab('leads'); }));
+// A stage in "Where each seller stands" opens the open leads at that stage.
+$('#by-status').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-stage]');
+  if (!b) return;
+  list.status = b.dataset.stage;
+  $('#stage-filter').value = list.status;
+  setView('open', false);
+  openTab('leads');
+});
 
 // ---------- partners & ROI ----------
 $('#s-month').value = new Date().toISOString().slice(0, 7);
@@ -659,18 +760,22 @@ async function loadLeads(reset) {
   const due = (l) => l.next_followup && Date.parse(l.next_followup) <= Date.now();
   // Leads that came in through the Spanish pages (/es/...) are marked so the team replies in Spanish.
   const spanish = (l) => /^\/es(\/|$)/.test(l.source || '');
+  // The waiting clock runs for a new lead nobody has called yet, and for a follow-up past its time.
+  const waiting = (l) => l.status === 'new' && !l.do_not_contact && list.view !== 'trash';
+  const sinceLine = (l) => (waiting(l) ? `${clockHtml(l.created_at)} waiting` : esc(ago(l.created_at)));
+  const dueLine = (l) => `${clockHtml(l.next_followup)} overdue`;
   $('#rows').innerHTML = list.items.map((l) => `<tr data-id="${esc(l.id)}" tabindex="0">
-      <td>${esc(when(l.created_at))}<span class="sub">${esc(ago(l.created_at))}</span></td>
+      <td>${esc(when(l.created_at))}<span class="sub">${sinceLine(l)}</span></td>
       <td><strong>${esc(l.name)}</strong><span class="sub">${esc(l.phone || l.email)}</span>${spanish(l) ? '<span class="sub">Reply in Spanish</span>' : ''}</td>
       <td>${esc(l.address || 'Not supplied')}</td>
       <td>${esc(l.situation || '—')}${l.route_interest ? `<span class="sub">Path: ${esc(ROUTES[l.route_interest] || l.route_interest)}</span>` : ''}</td>
       <td>${stageTag(l.status)}${l.do_not_contact ? '<span class="sub due">Do not contact</span>' : ''}</td>
-      <td class="${due(l) ? 'due' : ''}">${esc(when(l.next_followup))}${due(l) ? '<span class="sub due">Overdue</span>' : ''}</td>
+      <td>${esc(when(l.next_followup))}${due(l) ? `<span class="sub">${dueLine(l)}</span>` : ''}</td>
       <td>${esc(BRANDS[brandOf(l)])}<span class="sub">${esc(channelName(l.channel))}</span></td></tr>`).join('');
   $('#cards').innerHTML = list.items.map((l) => `<div class="lead-card" data-id="${esc(l.id)}" role="button" tabindex="0">
       <div class="row"><strong>${esc(l.name)}</strong>${stageTag(l.status)}</div>
       <span class="muted">${esc(l.address || l.email || 'General inquiry')}</span>
-      <div class="row"><span class="muted">${esc([BRANDS[brandOf(l)], l.situation].filter(Boolean).join(', '))}</span><span class="${due(l) ? 'due' : 'muted'}">${l.next_followup ? `Follow up ${esc(when(l.next_followup))}` : esc(ago(l.created_at))}</span></div>${spanish(l) ? '<span class="muted">Reply in Spanish</span>' : ''}</div>`).join('');
+      <div class="row"><span class="muted">${esc([BRANDS[brandOf(l)], l.situation].filter(Boolean).join(', '))}</span><span class="muted">${due(l) ? dueLine(l) : waiting(l) ? sinceLine(l) : l.next_followup ? `Follow up ${esc(when(l.next_followup))}` : esc(ago(l.created_at))}</span></div>${spanish(l) ? '<span class="muted">Reply in Spanish</span>' : ''}</div>`).join('');
   renderEmptyTrash();
 }
 ['#rows', '#cards'].forEach((sel) => {
@@ -858,12 +963,19 @@ function renderLead(l, events) {
     span.textContent = text;
     return span;
   }));
+  // The same waiting clock as the call sheet, while nobody has called a new lead.
+  if (l.status === 'new' && !l.first_contact_at && !l.do_not_contact && !l.deleted_at) {
+    const span = document.createElement('span');
+    span.innerHTML = `${clockHtml(l.created_at)} waiting for a first call`;
+    $('#d-sub').appendChild(span);
+  }
   $('#d-dnc').hidden = !l.do_not_contact;
   const tel = digits(l.phone);
   const contactButtons = l.do_not_contact || (operationsEnabled && !l.consent_response) ? [] : [
     tel && `<a class="btn" href="tel:${esc(tel)}">Call ${esc(l.phone)}</a>`,
     tel && `<a class="btn ghost" href="sms:${esc(tel)}">Text</a>`,
-    l.email && `<a class="btn ghost" href="mailto:${esc(l.email)}">Email</a>`,
+    // Everything but the "@" is percent-encoded, so a stored address such as "a@b.c?bcc=…" cannot add a recipient.
+    l.email && `<a class="btn ghost" href="mailto:${esc(encodeURIComponent(l.email).replace(/%40/g, '@'))}">Email</a>`,
     l.address && `<a class="btn ghost" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.address)}" target="_blank" rel="noopener">Map</a>`,
   ].filter(Boolean);
   if (operationsEnabled) contactButtons.push(`<a class="btn ghost" href="/hq/operations?inquiry=${encodeURIComponent(l.id)}">Work this inquiry</a>`);
