@@ -13,9 +13,46 @@ const BRANDS = { harbison_standard: 'Harbison Standard', call_harbison: 'Call Ha
 const CHANNELS = { google_ads: 'Google Ads', ai_search: 'AI search', youtube: 'YouTube', phone_call: 'Phone call', other_referral: 'Other referral', gbp: 'Google Business Profile' };
 const channelName = (c) => (c ? CHANNELS[c] || String(c).charAt(0).toUpperCase() + String(c).slice(1).replace(/_/g, ' ') : '—');
 const brandOf = (l) => (l.form_type === 'harbison_standard' ? 'harbison_standard' : 'call_harbison');
-// Stages are words. A dot only where the stage is also a state: new (needs a first call) and closed won.
-const stageTone = (s) => (s === 'new' ? 'critical' : s === 'closed_won' ? 'good' : ['closed_lost', 'not_a_fit', 'spam'].includes(s) ? 'plain ended' : 'plain');
-const stageTag = (s) => `<span class="dw ${stageTone(s)}">${esc(STAGES[s] || s)}</span>`;
+// Stages are soft pills: new in blue (not called yet), the working stages neutral, the stages near a sale in gold,
+// closed won in green, the closed and dead ones grey.
+const stageTone = (s) => (s === 'new' ? 'info' : s === 'closed_won' ? 'good'
+  : ['appointment_set', 'property_reviewed', 'options_presented', 'under_contract'].includes(s) ? 'gold'
+    : ['closed_lost', 'not_a_fit', 'spam'].includes(s) ? 'muted' : '');
+const stageTag = (s) => `<span class="pill ${stageTone(s)}">${esc(STAGES[s] || s)}</span>`;
+// Line icons, 24px grid, drawn at 18px with a 1.5 stroke (the same set as the sidebar).
+const ICONS = {
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  phone: '<path d="M20 16.2v2.6a1.7 1.7 0 0 1-1.9 1.7 16.8 16.8 0 0 1-7.3-2.6 16.5 16.5 0 0 1-5.1-5.1 16.8 16.8 0 0 1-2.6-7.4A1.7 1.7 0 0 1 4.8 3.5h2.6a1.7 1.7 0 0 1 1.7 1.5c.1.8.3 1.6.6 2.4a1.7 1.7 0 0 1-.4 1.8l-1.1 1.1a13.6 13.6 0 0 0 5.1 5.1l1.1-1.1a1.7 1.7 0 0 1 1.8-.4c.8.3 1.6.5 2.4.6a1.7 1.7 0 0 1 1.4 1.7z"/>',
+  userPlus: '<path d="M15 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 3 18.5V20"/><circle cx="9" cy="8" r="3.5"/><path d="M19 8v6M22 11h-6"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3v4M16 3v4M3.5 10h17"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.75"/>',
+  users: '<path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.5"/><path d="M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35"/><path d="M15.5 4.65a3.5 3.5 0 0 1 0 6.7"/>',
+  file: '<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3.5V8h4.5M9 13h6M9 16.5h6"/>',
+  up: '<path d="m4 16 6-6 4 4 6-6"/><path d="M15 8h5v5"/>',
+  down: '<path d="m4 8 6 6 4-4 6 6"/><path d="M15 16h5v-5"/>',
+};
+const icon = (name) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[name] || ''}</svg>`;
+// A KPI card: label and icon, one figure, then the change against the period before (or a line of context).
+const kpiCard = ({ icon: ic, tone = '', label, value, foot = '', go = '' }) => `<div class="card kpi"${go ? ` data-go="${go}" role="button" tabindex="0"` : ''}><div class="kpi-top"><span class="kpi-label">${esc(label)}</span><span class="kpi-ic${tone ? ` ${tone}` : ''}">${icon(ic)}</span></div><div class="kpi-value">${esc(value)}</div><div class="kpi-foot">${foot}</div></div>`;
+// The change against the period before: an arrow, the signed figure, and what it compares with. Up is good here.
+const changeChip = (cur, prev, { percent = true, against = '' } = {}) => {
+  const c = Number(cur) || 0;
+  const p = Number(prev) || 0;
+  if (prev == null) return '';
+  let text = 'No change';
+  let dir = 0;
+  if (!percent || p === 0) {
+    const d = c - p;
+    dir = Math.sign(d);
+    if (d) text = `${d > 0 ? '+' : '−'}${fmt(Math.abs(d))}`;
+  } else {
+    const r = ((c - p) / p) * 100;
+    const shown = Math.abs(r) >= 10 ? String(Math.round(Math.abs(r))) : Math.abs(r).toFixed(1);
+    if (shown !== '0' && shown !== '0.0') { dir = Math.sign(r); text = `${dir > 0 ? '+' : '−'}${shown}%`; }
+  }
+  return `<span class="chg ${dir > 0 ? 'up' : dir < 0 ? 'down' : 'flat'}">${dir ? icon(dir > 0 ? 'up' : 'down') : ''}${text}</span>${against ? `<span>${esc(against)}</span>` : ''}`;
+};
+const initials = (name) => String(name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join('').toUpperCase() || '?';
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 const money = (n) => (n == null ? '—' : `$${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`);
 const capFirst = (s) => { const t = String(s ?? ''); return t.charAt(0).toUpperCase() + t.slice(1); };
@@ -54,6 +91,11 @@ function tickClocks() {
     const m = minutesSince(el.dataset.since);
     el.className = `clock${clockTone(m)}`;
     el.innerHTML = clockInner(m);
+  });
+  document.querySelectorAll('[data-wait-since]').forEach((el) => {
+    const [tone, word] = waitWord(minutesSince(el.dataset.waitSince));
+    el.className = `pill ${tone}`;
+    el.textContent = word;
   });
 }
 setInterval(tickClocks, 30000);
@@ -148,19 +190,20 @@ function applyAnalyticsTabs(sources) {
   const hasCall = !known || Boolean(sources.call_harbison);
   $('#tab-analytics').hidden = !hasStandard;
   $('#tab-analytics-call').hidden = !hasCall;
-  // One site is simply "Website"; two are named by brand.
-  $('#tab-analytics-call').textContent = hasCall && !hasStandard ? 'Website' : 'Call Harbison site';
-  $('#tab-analytics').textContent = hasStandard && !hasCall ? 'Website' : 'Harbison Standard site';
+  // One site is simply "Website"; two are named by brand. The label sits beside the tab's icon.
+  $('#tab-analytics-call .label').textContent = hasCall && !hasStandard ? 'Website' : 'Call Harbison site';
+  $('#tab-analytics .label').textContent = hasStandard && !hasCall ? 'Website' : 'Harbison Standard site';
 }
 
-// ---------- phone menu ----------
-// Below 700px the sections fold into one Menu button that opens a list under the bar.
+// ---------- menu (tablets and phones) ----------
+// Below 1024px the sidebar becomes a menu that opens over the page, with a scrim behind it.
 function setMenu(open) {
   $('#top').classList.toggle('menu-open', open);
+  $('#side-scrim').hidden = !open;
   $('#hq-menu').setAttribute('aria-expanded', String(open));
 }
 $('#hq-menu').addEventListener('click', () => setMenu($('#hq-menu').getAttribute('aria-expanded') !== 'true'));
-document.addEventListener('click', (e) => { if (!e.target.closest('#top')) setMenu(false); });
+$('#side-scrim').addEventListener('click', () => setMenu(false));
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && $('#hq-menu').getAttribute('aria-expanded') === 'true') { setMenu(false); $('#hq-menu').focus(); }
 });
@@ -170,6 +213,8 @@ function showApp(name, enabled = false, analyticsSources) {
   $('#login').hidden = true;
   $('#app').hidden = false;
   $('#who').textContent = name;
+  $('#who-initial').textContent = initials(name);
+  $('#dash-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   try { localStorage.setItem('hq_name', name); } catch {}
   const sp = new URLSearchParams(location.search);
   if (sp.get('view')) list.view = sp.get('view');
@@ -213,10 +258,9 @@ function openTab(name, navigate = true) {
   const analytics = name.startsWith('analytics-');
   setMenu(false);
   document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
-  // On narrow screens the tab row scrolls sideways: bring the current tab into view.
-  const strip = $('.tabs');
-  const selected = strip?.querySelector('[aria-selected="true"]');
-  if (selected && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = Math.max(0, selected.offsetLeft - (strip.clientWidth - selected.offsetWidth) / 2);
+  // The top bar names the section the sidebar has selected.
+  $('#page-title').textContent = document.querySelector(`[data-tab="${name}"] .label`)?.textContent || 'Overview';
+  $('#dash-date').hidden = name !== 'dash';
   $('#operations').hidden = name !== 'operations';
   if (name === 'operations') window.loadSellerOperations?.();
   $('#dash').hidden = name !== 'dash';
@@ -458,14 +502,62 @@ window.addEventListener('resize', () => {
 // Every n-th index counted back from the newest, so the latest point always has a date under it.
 const tickEvery = (n, count) => { const step = Math.max(1, Math.ceil(n / count)); const out = []; for (let i = n - 1; i >= 0; i -= step) out.push(i); return out; };
 
-// ---------- ledgers ----------
-// Label left, figure right, rows on hairlines and one ink rule above a total: numbers set the way a settlement
-// statement sets them. rows: [{ key, label, value }]
-function ledger(el, rows, { total = null, stageLinks = false } = {}) {
+// ---------- card charts: donut and bars ----------
+const CAT = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6'];
+const shareOf = (v, sum) => { const p = sum ? (v / sum) * 100 : 0; return p > 0 && p < 1 ? '<1%' : `${Math.round(p)}%`; };
+// A share of one whole: at most six slices, the smallest folded into "Other". Each slice is named with its share
+// in the legend beside the ring; hovering or focusing a slice or its legend row shows it in the centre.
+function drawDonut(host, { rows, center, centerLabel, label, empty = 'Nothing yet', stageLinks = false }) {
+  if (!host) return;
+  const all = rows.filter((r) => r.value > 0);
+  const sum = all.reduce((n, r) => n + r.value, 0);
+  if (!sum) { host.innerHTML = `<p class="empty">${esc(empty)}</p>`; return; }
+  let slices = all;
+  if (all.length > 6) {
+    const kept = new Set([...all].sort((a, b) => b.value - a.value).slice(0, 5));
+    slices = [...all.filter((r) => kept.has(r)), { label: 'Other', value: all.filter((r) => !kept.has(r)).reduce((n, r) => n + r.value, 0), other: true }];
+  }
+  const R = 80;
+  const r = 56;
+  const C = 84;
+  const gap = slices.length > 1 ? 2 / ((R + r) / 2) : 0; // a 2px surface gap between slices
+  const pt = (rad, a) => `${(C + rad * Math.cos(a)).toFixed(2)} ${(C + rad * Math.sin(a)).toFixed(2)}`;
+  let a0 = -Math.PI / 2;
+  const segs = slices.map((s, i) => {
+    const sweep = (s.value / sum) * Math.PI * 2;
+    const start = a0 + gap / 2;
+    const end = Math.max(start + 0.01, a0 + sweep - gap / 2);
+    a0 += sweep;
+    const cls = s.other ? 'c-other' : CAT[i];
+    const d = slices.length === 1
+      ? `M${C - R} ${C}a${R} ${R} 0 1 0 ${2 * R} 0a${R} ${R} 0 1 0 ${-2 * R} 0ZM${C - r} ${C}a${r} ${r} 0 1 1 ${2 * r} 0a${r} ${r} 0 1 1 ${-2 * r} 0Z`
+      : `M${pt(R, start)}A${R} ${R} 0 ${end - start > Math.PI ? 1 : 0} 1 ${pt(R, end)}L${pt(r, end)}A${r} ${r} 0 ${end - start > Math.PI ? 1 : 0} 0 ${pt(r, start)}Z`;
+    return `<path class="seg ${cls}" data-i="${i}" d="${d}" fill-rule="evenodd"/>`;
+  }).join('');
+  const legend = slices.map((s, i) => `<li tabindex="0" data-i="${i}"${stageLinks && s.key ? ` data-stage="${esc(s.key)}"` : ''}><span class="sw ${s.other ? 'c-other' : CAT[i]}"></span><span class="nm">${esc(s.label)}</span><span class="pc">${shareOf(s.value, sum)}</span><span class="ct">${fmt(s.value)}</span></li>`).join('');
+  host.innerHTML = `<div class="donut-wrap"><div class="donut"><svg viewBox="0 0 168 168" role="img" aria-label="${esc(label)}">${segs}<text class="d-val" x="${C}" y="${C + 2}" text-anchor="middle">${esc(center)}</text><text class="d-lbl" x="${C}" y="${C + 22}" text-anchor="middle">${esc(centerLabel)}</text></svg><ul class="legend">${legend}</ul></div></div>`;
+  host.appendChild(tableView({ caption: label, head: ['', 'Count', 'Share'], rows: slices.map((s) => [s.label, fmt(s.value), shareOf(s.value, sum)]) }));
+  const box = host.querySelector('.donut');
+  const [val, lbl] = host.querySelectorAll('svg text');
+  const show = (i) => {
+    box.classList.toggle('focus', i != null);
+    box.querySelectorAll('[data-i]').forEach((el) => el.classList.toggle('on', i != null && el.dataset.i === String(i)));
+    val.textContent = i == null ? center : shareOf(slices[i].value, sum);
+    lbl.textContent = i == null ? centerLabel : (slices[i].label.length > 18 ? `${slices[i].label.slice(0, 17)}…` : slices[i].label);
+  };
+  box.querySelectorAll('[data-i]').forEach((el) => {
+    el.addEventListener('pointerenter', () => show(Number(el.dataset.i)));
+    el.addEventListener('pointerleave', () => show(null));
+    el.addEventListener('focus', () => show(Number(el.dataset.i)));
+    el.addEventListener('blur', () => show(null));
+  });
+}
+// Ranked bars in a card: the name, the figure, and a thin bar under them.
+function barList(el, rows, { empty = 'Nothing yet' } = {}) {
   if (!el) return;
-  if (!rows.length) { el.innerHTML = '<p class="empty">Nothing yet.</p>'; return; }
-  const label = (r) => (stageLinks && r.key ? `<button type="button" class="ledger-go" data-stage="${esc(r.key)}">${esc(r.label)}</button>` : esc(r.label));
-  el.innerHTML = `<table class="ledger"><tbody>${rows.map((r) => `<tr><th scope="row">${label(r)}</th><td>${fmt(r.value)}</td></tr>`).join('')}${total ? `<tr class="total"><th scope="row">${esc(total.label)}</th><td>${fmt(total.value)}</td></tr>` : ''}</tbody></table>`;
+  if (!rows.length) { el.innerHTML = `<p class="empty">${esc(empty)}</p>`; return; }
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  el.innerHTML = `<ul class="hbars">${rows.map((r) => `<li><span class="nm">${esc(r.label)}</span><span class="v">${fmt(r.value)}</span><span class="track"><span class="bar" style="width:${((r.value / max) * 100).toFixed(1)}%"></span></span></li>`).join('')}</ul>`;
 }
 // Counts keyed by name: largest first, or in the given order.
 const countRows = (obj, labels = {}, order = null) => {
@@ -476,20 +568,24 @@ const countRows = (obj, labels = {}, order = null) => {
   return sorted.map(([k, n]) => ({ key: k, label: labels[k] || capFirst(String(k).replace(/_/g, ' ')), value: Number(n) || 0 }));
 };
 
-// ---------- dashboard: the day sheet ----------
-// With seller operations on, a call starts from the inquiry once response permission is checked, so the call
-// sheet shows the number without making it a link.
-const phoneCell = (l, town) => {
+// ---------- Overview ----------
+// With seller operations on, a call starts from the inquiry once response permission is checked, so the list shows
+// the number without making it a link.
+const phoneHtml = (l) => {
   const tel = digits(l.phone);
-  const shown = l.phone
-    ? (tel && !operationsEnabled ? `<a href="tel:${esc(tel)}">${esc(l.phone)}</a>` : esc(l.phone))
-    : (l.email ? `<span class="muted">${esc(l.email)}</span>` : '');
-  return `<span class="c-phone">${shown}<span class="town-inline">${town ? `${shown ? ', ' : ''}${esc(town)}` : ''}</span></span>`;
+  if (l.phone) return tel && !operationsEnabled ? `<a href="tel:${esc(tel)}">${esc(l.phone)}</a>` : esc(l.phone);
+  return l.email ? `<span class="muted">${esc(l.email)}</span>` : '';
 };
-const sheetRow = (l, clockCell, sub) => {
+// The waiting pill names the clock's threshold in words.
+const waitWord = (m) => (m >= CLOCK_LATE ? ['critical', 'Past 24 hours'] : m >= CLOCK_SLOW ? ['warning', 'Over an hour'] : ['info', 'Under an hour']);
+const waitPill = (iso) => { const [tone, word] = waitWord(minutesSince(iso)); return `<span class="pill ${tone}" data-wait-since="${esc(iso)}">${word}</span>`; };
+const waitingRow = (l) => {
   const town = townOf(l.address);
-  return `<li data-id="${esc(l.id)}"><span class="c-clock">${clockCell}</span><span class="c-name"><button type="button">${esc(l.name)}</button>${sub ? `<span>${esc(sub)}</span>` : ''}</span>${phoneCell(l, town)}<span class="c-town">${esc(town || '—')}</span><span class="c-what">${esc(l.situation || '')}</span></li>`;
+  const phone = phoneHtml(l);
+  // The name, then the town and how they found us; the brand is in the lead itself.
+  return `<tr data-id="${esc(l.id)}" tabindex="0"><td class="c-clock">${clockHtml(l.created_at)}</td><td class="c-name"><strong>${esc(l.name)}</strong><span class="sub">${esc([town, l.channel && channelName(l.channel)].filter(Boolean).join(", ") || BRANDS[brandOf(l)])}</span></td><td class="c-phone">${phone}</td><td class="c-said">${esc(l.situation || "")}</td><td class="c-pill">${waitPill(l.created_at)}</td></tr>`;
 };
+const miniRow = (l, sub, meta) => `<li data-id="${esc(l.id)}" tabindex="0"><span class="avatar" aria-hidden="true">${esc(initials(l.name))}</span><span class="who-line"><strong>${esc(l.name)}</strong><span>${esc(sub)}</span></span><span class="meta">${meta}</span></li>`;
 const dayName = (iso) => {
   const d = new Date(iso);
   const start = new Date();
@@ -497,26 +593,28 @@ const dayName = (iso) => {
   const diff = Math.floor((new Date(d).setHours(0, 0, 0, 0) - start) / 864e5);
   return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 };
-const timeClock = (iso) => {
-  const [t, ap] = new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).split(' ');
-  return `<span class="clock"><b>${esc(t)}</b><i>${esc(ap || '')}</i></span>`;
-};
+const timeOf = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+const timeClock = (iso) => { const [t, ap] = timeOf(iso).split(' '); return `<span class="clock"><b>${esc(t)}</b><i>${esc(ap || '')}</i></span>`; };
 
 async function loadDash() {
   let d;
   try { d = await api('stats'); } catch (e) { $('#kpis').innerHTML = `<p class="empty">${esc(e.message)}</p>`; return; }
   const s = d.stats;
-  $('#dash-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const weeks = s.weekly || [];
+  const lastWeek = weeks.length - 1;
+  const thisWeek = weeks.length ? weeks[lastWeek].leads : s.new7;
+  const weekBefore = weeks.length > 1 ? weeks[lastWeek - 1].leads : null;
+  const next = d.upcoming[0];
 
-  // One quiet line of figures; the call sheet below carries the two that need action.
-  const item = (label, value, go, after = '') => `<span class="kpi"${go ? ` data-go="${go}" role="button" tabindex="0"` : ''}>${esc(label)} <b>${esc(value)}</b>${after ? ` ${esc(after)}` : ''}</span>`;
+  // KPI cards: what needs action first, then this week against the week before.
   $('#kpis').innerHTML = [
-    item('New today', fmt(s.newToday), 'new'),
-    item('New, last 7 days', fmt(s.new7), 'all'),
-    item('Open', fmt(s.openPipeline), 'open'),
-    item('Appointments, next 7 days', fmt(s.appointments7), 'open'),
-    item('Median first call, 30 days', s.medianMinutesToContact == null ? '—' : minutesText(s.medianMinutesToContact)),
-    item('Gross profit, 90 days', money(s.grossProfit90), 'closed', `from ${fmt(s.won90)} closed`),
+    kpiCard({ icon: 'clock', label: 'Waiting for a first call', value: fmt(s.uncontacted), go: 'new',
+      foot: d.waiting.length ? `<span>Longest</span>${clockHtml(d.waiting[0].created_at)}` : '<span>Everyone has had a first call</span>' }),
+    kpiCard({ icon: 'phone', label: 'Follow-ups due', value: fmt(s.followupsDue), go: 'followups', foot: '<span data-foot="followups">Checking…</span>' }),
+    kpiCard({ icon: 'userPlus', tone: 'gold', label: 'New leads this week', value: fmt(thisWeek), go: 'all',
+      foot: `${changeChip(thisWeek, weekBefore, { percent: false, against: 'vs the week before' })}<span>${fmt(s.newToday)} today</span>` }),
+    kpiCard({ icon: 'calendar', label: 'Appointments, next 7 days', value: fmt(s.appointments7), go: 'open',
+      foot: next ? `<span>Next ${esc(dayName(next.appointment_at))}, ${esc(timeOf(next.appointment_at))}</span>` : '<span>None booked</span>' }),
   ].join('');
   document.querySelectorAll('.kpi[data-go]').forEach((k) => {
     const go = () => { setView(k.dataset.go, false); openTab('leads'); };
@@ -524,42 +622,40 @@ async function loadDash() {
     k.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
 
-  // The call sheet: longest wait first, then follow-ups due, then appointments.
-  $('#count-waiting').textContent = fmt(s.uncontacted);
-  $('#count-followups').textContent = fmt(s.followupsDue);
-  $('#waiting').innerHTML = d.waiting.length
-    ? d.waiting.map((l) => sheetRow(l, `${clockHtml(l.created_at)}<span class="w">waiting</span>`, [BRANDS[brandOf(l)], l.channel && channelName(l.channel)].filter(Boolean).join(', '))).join('')
-      + (s.uncontacted > d.waiting.length ? `<li class="more-note note">The ${fmt(d.waiting.length)} longest waits of ${fmt(s.uncontacted)}</li>` : '')
-    : '<li class="empty">Everyone has had a first call</li>';
-  $('#upcoming').innerHTML = d.upcoming.length
-    ? d.upcoming.map((l) => sheetRow(l, `${timeClock(l.appointment_at)}<span class="w">${esc(dayName(l.appointment_at))}</span>`, BRANDS[brandOf(l)])).join('')
-    : '<li class="empty">No appointments booked</li>';
-  loadFollowupsDue(s.followupsDue);
-
-  const weeks = s.weekly || [];
-  const lastWeek = weeks.length - 1;
-  const peakWeek = weeks.reduce((best, w, i) => (w.leads > (weeks[best]?.leads ?? -1) ? i : best), 0);
-  // Each bucket is the 7 days ending now minus whole weeks; name its last day in local time (the reply's
+  // Leads per week: the week ending now in gold; labels name each bucket's last day in local time (the reply's
   // weekEnding is a UTC date, a day ahead in the evening here).
+  const peakWeek = weeks.reduce((best, w, i) => (w.leads > (weeks[best]?.leads ?? -1) ? i : best), 0);
   const weekEnd = (i) => new Date(Date.now() - (lastWeek - i) * 7 * 864e5).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  $('#spark-l').innerHTML = weeks.length ? `<span>Last ${weeks.length} weeks</span><span class="lg"><i class="lg-bar"></i>Earlier weeks</span><span class="lg"><i class="lg-bar lead"></i>Latest week</span>` : '';
+  $('#spark-l').innerHTML = weeks.length ? '<span class="lg"><i class="lg-bar"></i>Earlier weeks</span><span class="lg"><i class="lg-bar lead"></i>This week</span>' : '';
   drawChart($('#spark'), {
-    kind: 'columns', height: 240, points: weeks, value: (w) => w.leads,
+    kind: 'columns', height: 280, points: weeks, value: (w) => w.leads,
     label: `Leads per week, ${weeks.length} weeks to ${weeks.length ? weekEnd(lastWeek) : ''}`,
     markClass: (w, i) => (i === lastWeek ? 'm-lead' : 'm-series'),
     xTicks: (W, n) => tickEvery(n, W < 480 ? 3 : 4), xLabel: (w, i) => weekEnd(i),
     labelIdx: [lastWeek, peakWeek],
-    tip: (w, i) => ({ title: `${i === lastWeek ? 'Latest week, ' : ''}7 days to ${weekEnd(i)}`, rows: [{ value: fmt(w.leads), label: w.leads === 1 ? 'lead' : 'leads', key: i === lastWeek ? 'lead' : 'series' }] }),
+    tip: (w, i) => ({ title: `${i === lastWeek ? 'This week, ' : ''}7 days to ${weekEnd(i)}`, rows: [{ value: fmt(w.leads), label: w.leads === 1 ? 'lead' : 'leads', key: i === lastWeek ? 'lead' : 'series' }] }),
     table: { caption: 'Leads per week', head: ['Week ending', 'Leads'], rows: weeks.map((w, i) => [weekEnd(i), fmt(w.leads)]) },
     empty: 'No leads yet.',
   });
 
-  // Where each seller stands: open stages in pipeline order, the open total under an ink rule.
-  ledger($('#by-status'), countRows(s.byStatus, STAGES, Object.keys(STAGES)), { total: { label: 'Open', value: s.openPipeline }, stageLinks: true });
-  const bySource = countRows(s.byChannel, CHANNELS);
-  ledger($('#by-channel'), bySource, { total: bySource.length ? { label: 'Leads', value: bySource.reduce((n, r) => n + r.value, 0) } : null });
-  ledger($('#by-route'), countRows(s.byRoute, ROUTES));
-  ledger($('#by-brand'), countRows(s.byBrand, BRANDS));
+  // Pipeline by stage: open leads as one whole; a stage in the legend opens the leads at that stage.
+  drawDonut($('#by-status'), { rows: countRows(s.byStatus, STAGES, Object.keys(STAGES)), center: fmt(s.openPipeline), centerLabel: 'open', label: 'Open leads by stage', empty: 'No open leads', stageLinks: true });
+
+  // Waiting for a first call: longest wait first, the clock running, a pill naming its threshold.
+  $('#count-waiting').textContent = fmt(s.uncontacted);
+  $('#count-followups').textContent = fmt(s.followupsDue);
+  $('#waiting').innerHTML = d.waiting.length
+    ? d.waiting.map(waitingRow).join('') + (s.uncontacted > d.waiting.length ? `<tr><td colspan="5" class="note">The ${fmt(d.waiting.length)} longest waits of ${fmt(s.uncontacted)}</td></tr>` : '')
+    : '<tr><td colspan="5" class="empty">Everyone has had a first call</td></tr>';
+  $('#upcoming').innerHTML = d.upcoming.length
+    ? d.upcoming.map((l) => miniRow(l, [townOf(l.address), BRANDS[brandOf(l)]].filter(Boolean).join(', '), `${timeClock(l.appointment_at)}${esc(dayName(l.appointment_at))}`)).join('')
+    : '<li class="empty">No appointments booked</li>';
+  loadFollowupsDue(s.followupsDue);
+
+  drawDonut($('#by-channel'), { rows: countRows(s.byChannel, CHANNELS), center: fmt(Object.values(s.byChannel || {}).reduce((n, v) => n + (Number(v) || 0), 0)), centerLabel: 'leads', label: 'Where leads came from, last 30 days', empty: 'No leads in the last 30 days' });
+  barList($('#by-route'), countRows(s.byRoute, ROUTES), { empty: 'No path chosen in the last 30 days' });
+  barList($('#by-brand'), countRows(s.byBrand, BRANDS), { empty: 'No leads in the last 30 days' });
+  $('#results').innerHTML = `<div class="trio"><div><b>${esc(s.medianMinutesToContact == null ? '—' : minutesText(s.medianMinutesToContact))}</b><span>Median first call, 30 days</span></div><div><b>${fmt(s.won90)}</b><span>Closed, 90 days</span></div><div><b>${esc(money(s.grossProfit90))}</b><span>Gross profit, 90 days</span></div></div>`;
   loadHealth();
 }
 
@@ -568,15 +664,19 @@ let followupsRequest = 0;
 async function loadFollowupsDue(count) {
   const request = ++followupsRequest;
   const el = $('#followups-due');
+  const foot = () => document.querySelector('[data-foot="followups"]');
   try {
-    const r = await api('leads', { params: { view: 'followups', limit: '8' } });
+    const r = await api('leads', { params: { view: 'followups', limit: '6' } });
     if (request !== followupsRequest) return;
     el.innerHTML = r.leads.length
-      ? r.leads.map((l) => sheetRow(l, `${clockHtml(l.next_followup)}<span class="w">overdue</span>`, STAGES[l.status] || l.status)).join('')
+      ? r.leads.map((l) => miniRow(l, [STAGES[l.status] || l.status, townOf(l.address)].filter(Boolean).join(', '), `${clockHtml(l.next_followup)}overdue`)).join('')
         + (count > r.leads.length ? `<li class="more-note note">The ${fmt(r.leads.length)} oldest of ${fmt(count)}</li>` : '')
       : '<li class="empty">No follow-ups due</li>';
+    if (foot()) foot().innerHTML = r.leads.length ? `Oldest ${clockHtml(r.leads[0].next_followup)} overdue` : 'None due';
   } catch (e) {
-    if (request === followupsRequest) el.innerHTML = `<li class="empty">${esc(e.message)}</li>`;
+    if (request !== followupsRequest) return;
+    el.innerHTML = `<li class="empty">${esc(e.message)}</li>`;
+    if (foot()) foot().textContent = '';
   }
 }
 
@@ -585,10 +685,15 @@ async function loadHealth() {
   if (!el) return;
   try {
     const { health: h } = await api('health');
-    // One line per integration: its name, a status word with its dot, and what to do about it.
-    const line = (tone, name, word, detail = '') => `<li><span class="sl-name">${esc(name)}</span><span class="dw ${tone}">${esc(word)}</span><span class="sl-detail">${esc(detail)}</span></li>`;
+    // One tile per connection: its name, a status pill, and what to do about it.
+    const line = (tone, name, word, detail = '') => `<li><span class="sl-name">${esc(name)}</span><span class="pill ${tone}">${esc(word)}</span>${detail ? `<span class="sl-detail">${esc(detail)}</span>` : ''}</li>`;
+    // `missing` names what is not set (RESEND_API_KEY, LEAD_NOTIFY_EMAIL); an older server does not send it.
+    const missing = Array.isArray(h.email.missing) ? h.email.missing.map(String).filter(Boolean) : null;
+    const missingText = missing && missing.length
+      ? `${missing.length > 1 ? `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]} are` : `${missing[0]} is`} not set`
+      : 'RESEND_API_KEY is not set';
     const email = !h.email.configured
-      ? line('warning', 'Email alerts', 'Off', 'RESEND_API_KEY is not set')
+      ? line('warning', 'Email alerts', 'Off', missingText)
       : h.email.sandboxSender
         ? line('warning', 'Email alerts', 'Sandbox sender', 'Verify the LEAD_FROM_EMAIL domain')
         : line('good', 'Email alerts', 'Ready', `Sends to ${h.email.recipients.join(', ')}`);
@@ -597,8 +702,8 @@ async function loadHealth() {
       line('good', 'Database', 'Connected', h.crm?.label || ''),
       email,
       h.standardBridge.configured ? line('good', 'Standard bridge', 'Active') : line('warning', 'Standard bridge', 'Not set'),
-      h.webhook.configured ? line('good', 'Webhook', 'Active') : line('', 'Webhook', 'Off', 'Optional'),
-      h.sms.configured ? line('good', 'SMS', 'Configured', `Customer acknowledgement ${h.sms.customerAckEnabled ? 'on' : 'off'}`) : line('', 'SMS', 'Off'),
+      h.webhook.configured ? line('good', 'Webhook', 'Active', h.webhook.signed === true ? 'Posts are signed' : h.webhook.signed === false ? 'Posts are not signed' : '') : line('muted', 'Webhook', 'Off', 'Optional'),
+      h.sms.configured ? line('good', 'SMS', 'Configured', `Customer acknowledgement ${h.sms.customerAckEnabled ? 'on' : 'off'}`) : line('muted', 'SMS', 'Off'),
     ].join('')}</ul>`;
   } catch {
     el.textContent = 'Could not check integration status.';
@@ -622,11 +727,17 @@ $('#test-alert-btn')?.addEventListener('click', async (e) => {
     btn.disabled = false;
   }
 });
-['#waiting', '#upcoming', '#followups-due'].forEach((sel) => $(sel).addEventListener('click', (e) => {
-  if (e.target.closest('a')) return; // the phone number dials; the rest of the row opens the lead
-  const li = e.target.closest('li[data-id]');
-  if (li) openLead(li.dataset.id);
-}));
+['#waiting', '#upcoming', '#followups-due'].forEach((sel) => {
+  $(sel).addEventListener('click', (e) => {
+    if (e.target.closest('a')) return; // the phone number dials; the rest of the row opens the lead
+    const row = e.target.closest('[data-id]');
+    if (row) openLead(row.dataset.id);
+  });
+  $(sel).addEventListener('keydown', (e) => {
+    const row = e.target.closest('[data-id]');
+    if (row && e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openLead(row.dataset.id); }
+  });
+});
 document.querySelectorAll('[data-go-view]').forEach((b) => b.addEventListener('click', () => { setView(b.dataset.goView, false); openTab('leads'); }));
 // A stage in "Where each seller stands" opens the open leads at that stage.
 $('#by-status').addEventListener('click', (e) => {
@@ -641,7 +752,7 @@ $('#by-status').addEventListener('click', (e) => {
 // ---------- partners & ROI ----------
 $('#s-month').value = new Date().toISOString().slice(0, 7);
 const monthName = (m) => { const t = String(m || '').slice(0, 7); return /^\d{4}-\d{2}$/.test(t) ? new Date(`${t}-15T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : t; };
-const partnerStatus = (s) => `<span class="dw ${s === 'active' ? 'good' : ['paused', 'declined'].includes(s) ? 'plain ended' : 'plain'}">${esc(capFirst(String(s || '').replace(/_/g, ' ')))}</span>`;
+const partnerStatus = (s) => `<span class="pill ${s === 'active' ? 'good' : ['paused', 'declined'].includes(s) ? 'muted' : ''}">${esc(capFirst(String(s || '').replace(/_/g, ' ')))}</span>`;
 async function loadPartners() {
   let r;
   try { r = await api('partners'); } catch (e) {

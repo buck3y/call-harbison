@@ -93,49 +93,30 @@ function foldRows(el, limit) {
 function renderAnalytics(data, site) {
   const t = data.totals;
   const prev = data.previous;
-  const period = `the previous ${fmt(data.days)} day${data.days === 1 ? '' : 's'}`;
-  const change = (cur, before, absolute = false) => {
-    if (!prev || before == null) return '';
-    const c = statNum(cur);
-    const p = statNum(before);
-    let text = 'no change';
-    let dir = 0;
-    if (absolute || p === 0) {
-      const diff = c - p;
-      dir = Math.sign(diff);
-      if (diff) text = `${diff > 0 ? '+' : '−'}${fmt(Math.abs(diff))}`;
-    } else {
-      const r = ((c - p) / p) * 100;
-      const abs = Math.abs(r);
-      const shown = abs >= 10 ? String(Math.round(abs)) : abs.toFixed(1);
-      if (shown !== '0.0' && shown !== '0') { dir = Math.sign(r); text = `${dir > 0 ? '+' : '−'}${shown}%`; }
-    }
-    return `<span class="delta${dir > 0 ? ' up' : dir < 0 ? ' down' : ''}">${text}</span>`;
-  };
+  const against = `vs previous ${fmt(data.days)} day${data.days === 1 ? '' : 's'}`;
+  const range = `${dayShort(data.range.from)} to ${dayShort(data.range.to)}`;
+  const chip = (cur, before) => (prev && before != null ? changeChip(cur, before, { against }) : `<span>${esc(range)}</span>`);
 
-  // One quiet line of figures; changes compare with the previous period of the same length.
-  const kpi = (label, value, after = '') => `<span class="kpi">${esc(label)} <b>${esc(value)}</b>${after ? ` ${after}` : ''}</span>`;
+  // KPI cards with the change against the previous period of the same length (when the reply has one).
   $('#analytics-kpis').innerHTML = [
-    kpi('Visits', fmt(t.sessions), change(t.sessions, prev?.sessions)),
-    kpi('Visitors', fmt(t.uniqueVisitors), change(t.uniqueVisitors, prev?.uniqueVisitors)),
-    kpi('Page views', fmt(t.pageViews), `${change(t.pageViews, prev?.pageViews)} ${esc(t.pagesPerSession.toFixed(2))} a visit`.trim()),
-    kpi('Time on site', duration(t.avgDurationSeconds), esc(`average, ${duration(t.medianDurationSeconds)} median, ${duration(t.totalDurationSeconds)} in all`)),
-    prev ? `<span class="kpi">Changes compare with ${esc(period)}</span>` : '',
+    kpiCard({ icon: 'eye', label: 'Visits', value: fmt(t.sessions), foot: chip(t.sessions, prev?.sessions) }),
+    kpiCard({ icon: 'users', label: 'Visitors', value: fmt(t.uniqueVisitors), foot: chip(t.uniqueVisitors, prev?.uniqueVisitors) }),
+    kpiCard({ icon: 'file', label: 'Page views', value: fmt(t.pageViews), foot: `${prev && prev.pageViews != null ? changeChip(t.pageViews, prev.pageViews) : ''}<span>${esc(t.pagesPerSession.toFixed(2))} a visit</span>` }),
+    kpiCard({ icon: 'clock', label: 'Average time on site', value: duration(t.avgDurationSeconds), foot: `<span>${esc(`${duration(t.medianDurationSeconds)} median, ${duration(t.totalDurationSeconds)} in all`)}</span>` }),
   ].join('');
 
-  // The main chart: visits per day as a line, with leads per day in a gold strip under it when the reply has them.
+  // Visits per day: a line, with leads per day in a gold strip under it when the reply has them.
   const daily = data.daily;
   const n = daily.length;
   const hasLeads = daily.some((d) => d.leads != null);
   const hasViews = daily.some((d) => d.pageViews != null);
   const hasVisitors = daily.some((d) => d.visitors != null);
   const peakDay = daily.reduce((best, d, i) => (d.sessions > (daily[best]?.sessions ?? -1) ? i : best), 0);
-  $('#analytics-traffic-note').innerHTML = n
-    ? `<span>${esc(`${dayShort(daily[0].day)} to ${dayShort(daily[n - 1].day)}, ${zoneName(data.dayZone)}`)}</span>${hasLeads && t.sessions ? '<span class="lg"><i class="lg-line"></i>Visits</span><span class="lg"><i class="lg-bar lead"></i>Leads</span>' : ''}`
-    : '';
+  $('#analytics-range').textContent = n ? `${dayShort(daily[0].day)} to ${dayShort(daily[n - 1].day)}, ${zoneName(data.dayZone)}` : '';
+  $('#analytics-traffic-note').innerHTML = hasLeads && t.sessions ? '<span class="lg"><i class="lg-line"></i>Visits</span><span class="lg"><i class="lg-bar lead"></i>Leads</span>' : '';
   const plural = (v, one, many) => (v === 1 ? one : many);
   drawChart($('#analytics-traffic'), {
-    kind: 'line', height: 260, points: t.sessions ? daily : [], value: (d) => d.sessions,
+    kind: 'line', height: 240, points: t.sessions ? daily : [], value: (d) => d.sessions,
     label: `Visits per day${n ? `, ${dayShort(daily[0].day)} to ${dayShort(daily[n - 1].day)}` : ''}`,
     strip: hasLeads ? { name: 'Leads', value: (d) => d.leads || 0 } : null,
     xTicks: (W, count) => tickEvery(count, W < 480 ? 4 : count <= 10 ? count : 6), xLabel: (d) => dayShort(d.day),
@@ -157,14 +138,14 @@ function renderAnalytics(data, site) {
     empty: 'No visits were recorded in this date range.',
   });
 
-  // From visit to sale, set as one statement: the site's own count, then what became of the same days' leads in HQ.
+  // From visit to sale, as one statement: the site's own count, then what became of the same days' leads in HQ.
   const ev = data.events;
   const row = (label, rate, value, cls = '') => `<tr${cls ? ` class="${cls}"` : ''}><th scope="row">${esc(label)}</th><td class="soft">${esc(rate)}</td><td>${esc(value)}</td></tr>`;
   const foot = [
-    ev && prev?.leads != null ? `${fmt(ev.leads)} requests, ${change(ev.leads, prev.leads, true)} against ${esc(period)}.` : '',
+    ev && prev?.leads != null ? `${fmt(ev.leads)} requests, ${changeChip(ev.leads, prev.leads, { percent: false })} against the previous ${fmt(data.days)} days.` : '',
     ev && (ev.callClicks || ev.textClicks) ? `Also ${fmt(ev.callClicks)} taps on the phone number and ${fmt(ev.textClicks)} on text.` : '',
   ].filter(Boolean).join(' ');
-  $('#analytics-funnel').innerHTML = `<h3>From visit to sale</h3><p class="note">${esc(`${dayShort(data.range.from)} to ${dayShort(data.range.to)}`)}</p>
+  $('#analytics-funnel').innerHTML = `<div class="card-head"><div><h3>From visit to sale</h3><p class="card-sub">${esc(range)}</p></div></div>
     <table class="ledger"><tbody>
       <tr class="group"><th scope="colgroup" colspan="3">On the website</th></tr>
       ${row('Visits', '', fmt(t.sessions))}
@@ -175,56 +156,59 @@ function renderAnalytics(data, site) {
     ${foot ? `<p class="note statement-foot">${foot}</p>` : ''}`;
   loadStatementLeads(site, data);
 
-  // Where visits came from: each source, with the referring sites it covers under it.
-  const sources = data.lists.referrers;
-  const hosts = data.lists.referrerHosts.map((h) => ({ key: h.key.replace(/^www\./, ''), value: h.value }));
-  const sourceKeys = new Set(sources.map((s) => s.key));
-  const subRows = (list) => list.map((h) => `<tr class="sub" data-fold><th scope="row">${esc(h.key || '(not set)')}</th><td>${fmt(h.value)}</td><td class="soft">${shareText(h.value, t.sessions)}</td></tr>`).join('');
-  const srcRows = sources.map((s) => `<tr><th scope="row">${esc(SOURCE_NAMES[s.key] || capFirst(s.key || '(not set)'))}</th><td>${fmt(s.value)}</td><td class="soft">${shareText(s.value, t.sessions)}</td></tr>${subRows(hosts.filter((h) => hostSource(h.key) === s.key))}`).join('');
-  const strays = hosts.filter((h) => !sourceKeys.has(hostSource(h.key)));
-  const campaigns = data.lists.campaigns;
+  // Where visits came from, and the devices they used: each a share of all visits.
   const srcBox = $('#analytics-sources');
-  srcBox.innerHTML = sources.length || hosts.length
-    ? `<h3>Where visits came from</h3><table class="ledger"><thead><tr><th scope="col">Source</th><th scope="col" class="num">Visits</th><th scope="col" class="num">Share</th></tr></thead><tbody>${srcRows}${strays.length ? `<tr class="group"><th scope="colgroup" colspan="3">Other referring sites</th></tr>${subRows(strays)}` : ''}${campaigns.length ? `<tr class="group"><th scope="colgroup" colspan="3">Campaigns</th></tr>${subRows(campaigns)}` : ''}<tr class="total"><th scope="row">All visits</th><td>${fmt(t.sessions)}</td><td class="soft"></td></tr></tbody></table>`
-    : '';
-
-  // What people read: each page's views, and the share of all visits that began on it.
-  const entries = new Map(data.lists.entryPages.map((e) => [e.key, e.value]));
-  const viewed = new Set(data.lists.topPages.map((p) => p.key));
-  const pages = [...data.lists.topPages, ...data.lists.entryPages.filter((e) => !viewed.has(e.key)).map((e) => ({ key: e.key, value: null }))];
-  const pageBox = $('#analytics-pages');
-  pageBox.innerHTML = pages.length
-    ? `<h3>What people read</h3><table class="ledger"><thead><tr><th scope="col">Page</th><th scope="col" class="num">Views</th><th scope="col" class="num">Visits started here</th></tr></thead><tbody>${pages.map((p) => `<tr data-fold><th scope="row" class="path">${esc(p.key || '(not set)')}</th><td>${p.value == null ? '—' : fmt(p.value)}</td><td class="soft">${entries.has(p.key) ? shareText(entries.get(p.key), t.sessions) : '—'}</td></tr>`).join('')}</tbody></table>`
-    : '';
-  if (pages.length) foldRows(pageBox, 10);
+  srcBox.hidden = !data.lists.referrers.length;
+  srcBox.innerHTML = '<div class="card-head"><div><h3>Where visits came from</h3><p class="card-sub">Share of visits</p></div></div><div></div>';
+  drawDonut(srcBox.lastElementChild, { rows: data.lists.referrers.map((s) => ({ label: SOURCE_NAMES[s.key] || capFirst(s.key || '(not set)'), value: s.value })), center: fmt(t.sessions), centerLabel: 'visits', label: 'Where visits came from' });
+  const devBox = $('#analytics-devices');
+  devBox.hidden = !data.lists.devices.length;
+  devBox.innerHTML = '<div class="card-head"><div><h3>Devices</h3><p class="card-sub">Share of visits</p></div></div><div></div>';
+  drawDonut(devBox.lastElementChild, { rows: data.lists.devices.map((s) => ({ label: capFirst(s.key || '(not set)'), value: s.value })), center: fmt(data.lists.devices.reduce((m, s) => m + s.value, 0)), centerLabel: 'visits', label: 'Devices used for visits' });
 
   // Hours of the day: 24 small columns in hour order, in the zone the reply names.
   const hoursBox = $('#analytics-hours');
+  hoursBox.hidden = !data.hasHours;
   if (data.hasHours) {
-    hoursBox.hidden = false;
-    hoursBox.innerHTML = `<div class="chart-head"><h3>Visits by hour, ${esc(zoneName(data.hourZone))}</h3></div><div class="chart" id="analytics-hours-chart"></div>`;
+    hoursBox.innerHTML = `<div class="card-head"><div><h3>Visits by hour</h3><p class="card-sub">${esc(zoneName(data.hourZone))}</p></div></div><div class="chart" id="analytics-hours-chart"></div>`;
     const peak = data.hours.reduce((best, h, i) => (h.value > data.hours[best].value ? i : best), 0);
     drawChart($('#analytics-hours-chart'), {
-      kind: 'columns', height: 120, points: data.hours, value: (h) => h.value,
+      kind: 'columns', height: 132, points: data.hours, value: (h) => h.value,
       label: `Visits by hour of day, ${zoneName(data.hourZone)}`,
       xTicks: () => [0, 6, 12, 18], xLabel: (h) => hourName(h.hour), labelIdx: [peak],
       tip: (h) => ({ title: `${hourName(h.hour)} to ${hourName(h.hour + 1)}`, rows: [{ value: fmt(h.value), label: h.value === 1 ? 'visit' : 'visits', key: 'series' }] }),
       table: { caption: `Visits by hour, ${zoneName(data.hourZone)}`, head: ['Hour', 'Visits'], rows: data.hours.map((h) => [`${hourName(h.hour)} to ${hourName(h.hour + 1)}`, fmt(h.value)]) },
     });
-  } else {
-    hoursBox.hidden = true;
-    hoursBox.innerHTML = '';
-  }
+  } else hoursBox.innerHTML = '';
 
-  // Reference: devices, browsers, systems, last pages and places, as short lines of text.
-  const refs = [['Devices', 'devices', true], ['Browsers', 'browsers'], ['Systems', 'operatingSystems'], ['Last page seen', 'exitPages'], ['Countries', 'countries'], ['States', 'regions'], ['Cities', 'cities']]
-    .filter(([, key]) => data.lists[key].length);
-  const refBox = $('#analytics-groups');
-  refBox.hidden = !refs.length;
-  refBox.innerHTML = refs.length
-    ? `<h3>For reference</h3><dl>${refs.map(([name, key, cap]) => `<dt>${esc(name)}</dt><dd>${data.lists[key].slice(0, 6).map((e) => `<span>${esc(cap ? capFirst(e.key) : e.key || '(not set)')} ${shareText(e.value, t.sessions)}</span>`).join(' ')}</dd>`).join('')}</dl>`
+  // Top pages: each page's views, and the share of all visits that began on it.
+  const entries = new Map(data.lists.entryPages.map((e) => [e.key, e.value]));
+  const viewed = new Set(data.lists.topPages.map((p) => p.key));
+  const pages = [...data.lists.topPages, ...data.lists.entryPages.filter((e) => !viewed.has(e.key)).map((e) => ({ key: e.key, value: null }))];
+  const pageBox = $('#analytics-pages');
+  pageBox.hidden = !pages.length;
+  pageBox.innerHTML = pages.length
+    ? `<div class="card-head"><div><h3>Top pages</h3><p class="card-sub">Views, and the share of visits that started on the page</p></div></div><div class="table-wrap"><table><thead><tr><th>Page</th><th class="num-col">Views</th><th class="num-col">Visits started here</th></tr></thead><tbody>${pages.map((p) => `<tr data-fold><td class="path">${esc(p.key || '(not set)')}</td><td class="num-col"><strong>${p.value == null ? '—' : fmt(p.value)}</strong></td><td class="num-col">${entries.has(p.key) ? shareText(entries.get(p.key), t.sessions) : '—'}</td></tr>`).join('')}</tbody></table></div>`
     : '';
-  $('#analytics-row').hidden = hoursBox.hidden && refBox.hidden;
+  if (pages.length) { foldRows(pageBox, 8); pageBox.querySelector('.list-more')?.classList.add('pad'); }
+
+  // Referring sites and campaigns: ranked bars.
+  const hosts = data.lists.referrerHosts.map((h) => ({ label: h.key.replace(/^www\./, '') || '(not set)', value: h.value }));
+  const campaigns = data.lists.campaigns.map((c) => ({ label: c.key || '(not set)', value: c.value }));
+  const refBox = $('#analytics-referrers');
+  refBox.hidden = !hosts.length && !campaigns.length;
+  refBox.innerHTML = `<div class="card-head"><div><h3>Referring sites</h3><p class="card-sub">Visits from each site</p></div></div><div id="analytics-hosts"></div>${campaigns.length ? '<h4 class="sub-head">Campaigns</h4><div id="analytics-campaigns"></div>' : ''}`;
+  barList($('#analytics-hosts'), hosts.slice(0, 8), { empty: 'No referring sites' });
+  if (campaigns.length) barList($('#analytics-campaigns'), campaigns.slice(0, 6));
+
+  // Reference: browsers, systems, last pages and places, as short lines of text.
+  const refs = [['Browsers', 'browsers'], ['Systems', 'operatingSystems'], ['Last page seen', 'exitPages'], ['Countries', 'countries'], ['States', 'regions'], ['Cities', 'cities']]
+    .filter(([, key]) => data.lists[key].length);
+  const groupBox = $('#analytics-groups');
+  groupBox.hidden = !refs.length;
+  groupBox.innerHTML = refs.length
+    ? `<div class="card-head"><div><h3>For reference</h3><p class="card-sub">Share of visits</p></div></div><dl>${refs.map(([name, key]) => `<dt>${esc(name)}</dt><dd>${data.lists[key].slice(0, 6).map((e) => `<span>${esc(e.key || '(not set)')} ${shareText(e.value, t.sessions)}</span>`).join(' ')}</dd>`).join('')}</dl>`
+    : '';
 }
 
 // The second half of the statement: leads from the same brand created on the same calendar days, and where each

@@ -10,57 +10,62 @@
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png?v=2">
 <link rel="preload" as="font" type="font/woff2" href="/fonts/public-sans-latin.woff2" crossorigin>
 <style>
-/* Harbison HQ: a call sheet and a ledger on the public site's letterhead. Navy ink, brass gold, white paper,
-   Public Sans 400/500/600. Figures are set the way a settlement statement sets them: label left, figure right,
-   rows on hairlines, one ink rule above a total. The signature is the waiting clock, the same everywhere a lead
-   appears. Chart marks are one blue; gold marks leads. */
+/* Harbison HQ. The layout follows the owner's reference dashboards (2026-11-27): a navy sidebar with line icons,
+   a top bar, a row of KPI cards, and white rounded cards for charts, tables and short lists on a light grey ground.
+   The palette and type are Call Harbison's: navy, gold for the current item and for leads, Public Sans 400/500/600.
+   Chart colours are the dataviz reference palette in its fixed order with the site's blue first; status colours
+   (good, warning, critical) are kept for pills, the waiting clock and changes. */
 @font-face{font-family:'Public Sans';font-style:normal;font-weight:400 700;font-display:swap;src:url(/fonts/public-sans-latin.woff2) format('woff2')}
 :root{
   --navy:#0B223E;--navy-2:#16325A;
   --gold:#C8A260;--gold-hover:#D6B67A;--gold-mid:#A8854A;--gold-ink:#6E5220;
-  --paper:#FFFFFF;--paper-2:#F4F5F7;
+  --paper:#FFFFFF;--ground:#F4F5F7;
   --text:#26313C;--soft:#59636E;--muted:#6B7480;
   --line:#E3E6EB;--line-2:#C9CED6;
-  /* Field borders: 3:1 against white, as on the public site */
   --field:#878F9A;
   --ring:0 0 0 3px rgba(11,34,62,.14);
+  /* Charts: categorical slots in the dataviz palette's fixed order, the site's blue first; "Other" is grey */
+  --c1:#2A5C9A;--c2:#EB6834;--c3:#1BAF7A;--c4:#EDA100;--c5:#E87BA4;--c6:#008300;--c-other:#8A94A0;
   --series:#2A5C9A;--series-lead:#AD7B28;
+  /* Status only: pills, the waiting clock, changes */
   --good:#1F6B4A;--warning:#B54708;--critical:#B42318;--danger-bg:#FEF3F2;
   --on-navy-2:rgba(255,255,255,.84);--on-navy-3:rgba(255,255,255,.7);
   --sans:'Public Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif;
-  /* The site's corner (10px) for controls; 8px for small controls and tooltips (nested radius) */
-  --r:10px;--r-sm:8px;
-  --pad:max(32px,calc((100vw - 1360px) / 2));
+  /* Corners: cards 16, controls 10 (the site's --r), small controls 8 */
+  --rc:16px;--r:10px;--r-sm:8px;
+  --card-pad:24px;--gap:24px;
+  --shadow:0 1px 2px rgba(11,34,62,.05),0 8px 24px -12px rgba(11,34,62,.14);
   --lift:0 16px 36px -16px rgba(11,34,62,.4);
   --ease:cubic-bezier(.22,1,.36,1);
+  --side:248px;
   color-scheme:light;accent-color:var(--navy)
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{font:400 14px/1.5 var(--sans);color:var(--text);background:var(--paper);-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font:400 14px/1.5 var(--sans);color:var(--text);background:var(--ground);-webkit-text-size-adjust:100%;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:var(--navy);text-decoration:underline;text-decoration-color:var(--gold-mid);text-decoration-thickness:1px;text-underline-offset:3px}
 a:hover{text-decoration-color:var(--navy)}
 [hidden]{display:none!important}
 :focus-visible{outline:2px solid var(--navy);outline-offset:2px}
-.top :focus-visible,.login :focus-visible{outline-color:var(--gold)}
+.side :focus-visible,.login-brand :focus-visible{outline-color:var(--gold)}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
-/* Six sizes: 12 axis, 13 notes, 14 text, 16 headings and names, 20 clocks and totals, 24 page titles */
 h1,h2,h3,h4{font-family:var(--sans);color:var(--navy);margin:0;text-wrap:balance}
-h2{font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-.005em}
+h1{font-size:24px;line-height:1.25;font-weight:600}
+h2{font-size:20px;line-height:1.3;font-weight:600}
 h3{font-size:16px;line-height:1.35;font-weight:600}
 h4{font-size:13px;line-height:1.4;font-weight:500;color:var(--soft)}
 p{margin:0}
 strong{font-weight:600}
 code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92em}
 .muted{color:var(--soft)}
-.intro{margin-top:4px;max-width:72ch;font-size:14px;color:var(--soft)}
 .note{font-size:13px;color:var(--soft)}
 .num,.num-col{font-variant-numeric:tabular-nums}
 .empty{color:var(--soft);padding:4px 0}
+.ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 
 /* ---------- Controls ---------- */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border:1px solid transparent;border-radius:var(--r);background:var(--navy);color:#fff;font:600 14px/1.2 var(--sans);letter-spacing:.005em;cursor:pointer;text-decoration:none;white-space:nowrap;transition:background-color .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border:1px solid transparent;border-radius:var(--r);background:var(--navy);color:#fff;font:600 14px/1.2 var(--sans);cursor:pointer;text-decoration:none;white-space:nowrap;transition:background-color .15s var(--ease),border-color .15s var(--ease),color .15s var(--ease)}
 .btn:hover{background:var(--navy-2);color:#fff}
 .btn:active{transform:translateY(1px)}
 .btn:disabled{opacity:.5;cursor:not-allowed}
@@ -79,149 +84,207 @@ input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea{mi
 input::placeholder,textarea::placeholder{color:#78808A}
 input:hover:not(:disabled),select:hover:not(:disabled),textarea:hover:not(:disabled){border-color:var(--navy)}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy);box-shadow:var(--ring)}
-input:disabled,select:disabled,textarea:disabled{background-color:var(--paper-2);border-color:var(--line-2);color:var(--soft);cursor:not-allowed}
+input:disabled,select:disabled,textarea:disabled{background-color:var(--ground);border-color:var(--line-2);color:var(--soft);cursor:not-allowed}
 select{padding-right:32px}
 textarea{min-height:96px;resize:vertical}
 input[type=checkbox]{width:18px;height:18px;margin:0;flex:none;accent-color:var(--navy)}
 input[type=file]{font-size:13px;color:var(--soft)}
 input[type=file]::file-selector-button{min-height:32px;margin-right:12px;padding:0 12px;border:1px solid var(--field);border-radius:var(--r-sm);background:var(--paper);color:var(--navy);font:600 13px/1.2 var(--sans);cursor:pointer}
-input[type=file]::file-selector-button:hover{border-color:var(--navy)}
 .status-msg{font-size:14px;color:var(--soft)}
 .status-msg.ok{color:var(--good)}
 .status-msg.bad{color:var(--critical)}
-/* A word with an 8px status dot. The colour means state; the word says it. */
-.dw{position:relative;display:inline-block;padding-left:16px;white-space:nowrap}
-.dw::before{content:"";position:absolute;left:0;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--line-2)}
-.dw.plain::before{display:none}
-.dw.good::before{background:var(--good)}
-.dw.warning::before{background:var(--warning)}
-.dw.critical::before{background:var(--critical)}
-.dw.ended{color:var(--soft)}
 
-/* ---------- The waiting clock: how long a lead has waited for a first call (or a follow-up has been due) ----------
-   Figures in ink, units small; brass rule under none. Under an hour it is ink, past an hour amber, past the
-   24 hours the site promises it is red. It ticks every 30 seconds. */
+/* Status pills: a soft tint and a word. Colour means state only. */
+.pill{display:inline-flex;align-items:center;gap:6px;min-height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;line-height:1;white-space:nowrap;background:#EDEFF2;color:#3D4853}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.pill.good{background:#E6F2EC;color:#1F6B4A}
+.pill.warning{background:#FCEFE3;color:#9A3B05}
+.pill.critical{background:#FCE9E7;color:#A5231A}
+.pill.info{background:#E6EEF7;color:#1E4F86}
+.pill.gold{background:#F5EEDF;color:#6E5220}
+.pill.muted{background:#F1F2F4;color:#59636E}
+
+/* The waiting clock: figures in ink, units small. Amber past an hour, red past the 24-hour reply the site promises. */
 .clock{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--navy)}
 .clock b{font-weight:600}
-.clock i{font-style:normal;font-size:max(11px,.72em);font-weight:500;color:var(--soft);margin:0 .32em 0 .12em}
+.clock i{font-style:normal;font-size:max(11px,.78em);font-weight:500;color:var(--soft);margin:0 .32em 0 .12em}
 .clock i:last-child{margin-right:0}
 .clock.slow,.clock.slow i{color:var(--warning)}
 .clock.late,.clock.late i{color:var(--critical)}
 
 /* ---------- Sign in ---------- */
-.login{min-height:100vh;min-height:100dvh;display:grid;align-items:center;padding:48px var(--pad);background:var(--navy);color:#fff}
-.login form{width:min(360px,100%);margin:0 auto;display:grid;gap:16px}
-.login img{height:36px;width:auto;margin-bottom:24px}
-.login h1{font-size:24px;line-height:1.25;font-weight:600;color:#fff}
-.login p{font-size:14px;color:var(--on-navy-2)}
-.login label{display:grid;gap:8px;font-size:14px;font-weight:500;color:#fff}
-.login form input:not([type=checkbox]):not([type=radio]):not([type=file]){min-height:48px;padding:0 16px;border-color:transparent;font-size:16px}
-.login form input:focus{border-color:transparent;box-shadow:0 0 0 3px rgba(200,162,96,.6)}
+.login{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:48px 16px;background:var(--ground)}
+.login form{width:min(400px,100%);display:grid;gap:16px;padding:32px;border:1px solid var(--line);border-radius:var(--rc);background:var(--paper);box-shadow:var(--shadow)}
+.login-brand{display:flex;align-items:center;justify-content:center;margin:-32px -32px 8px;padding:24px;border-radius:var(--rc) var(--rc) 0 0;background:var(--navy)}
+.login img{height:34px;width:auto}
+.login h1{margin-top:8px}
+.login p{color:var(--soft)}
+.login label{display:grid;gap:6px;font-size:14px;font-weight:500;color:var(--text)}
+.login form input:not([type=checkbox]):not([type=radio]):not([type=file]){min-height:48px;padding:0 16px;font-size:16px}
 .login .btn{min-height:48px;margin-top:8px;font-size:16px}
-.login .btn:focus-visible{outline-offset:3px}
-.err{min-height:1.5em;font-size:14px;color:#FDB8AE}
+.err{min-height:1.5em;font-size:14px;color:var(--critical)}
 
-/* ---------- Shell ---------- */
-.top{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;padding:env(safe-area-inset-top,0px) var(--pad) 0}
-.top-in{position:relative;display:flex;align-items:center;gap:0 24px;min-height:56px}
-.top img{order:0;flex:none;height:28px;width:auto}
-.hq-tag{order:0;margin-left:-8px;font-size:14px;color:var(--on-navy-3);white-space:nowrap}
+/* ---------- Shell: sidebar, top bar, work area ---------- */
+.shell{display:grid;grid-template-columns:var(--side) minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;z-index:30;display:flex;flex-direction:column;height:100vh;height:100dvh;padding:24px 16px 16px;background:var(--navy);color:#fff;overflow-y:auto}
+.side-brand{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:0 12px}
+.side-brand img{height:30px;width:auto}
+.hq-tag{font-size:12px;color:var(--on-navy-3)}
 .menu-btn{display:none}
-/* On wide screens the nav panel's children sit in the bar itself */
-.nav-panel{display:contents}
-.tabs{order:1;position:relative;display:flex;align-self:stretch;gap:4px;min-width:0;margin-left:8px;scrollbar-width:none}
-.tabs::-webkit-scrollbar{display:none}
-.tabs button{position:relative;flex:none;display:flex;align-items:center;min-height:56px;padding:0 12px;border:0;border-radius:0;background:none;color:var(--on-navy-3);font-size:14px;font-weight:500;white-space:nowrap;cursor:pointer;transition:color .15s var(--ease)}
-.tabs button:hover{color:#fff}
-.tabs button[aria-selected=true]{color:#fff}
-.tabs button[aria-selected=true]::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:2px;background:var(--gold)}
-.tabs button:focus-visible{outline-offset:-4px}
-.btn.top-add{order:2;min-height:36px;margin-left:auto;padding:0 16px;border-radius:var(--r-sm)}
-.nav-foot{order:3;display:flex;align-items:center;gap:16px}
-.who{font-size:14px;color:var(--on-navy-3);white-space:nowrap}
-.linkbtn{min-height:40px;padding:0;border:0;background:none;color:#fff;font-size:14px;font-weight:500;cursor:pointer;text-decoration:underline;text-decoration-color:rgba(200,162,96,.7);text-underline-offset:4px}
-.linkbtn:hover{text-decoration-color:var(--gold)}
-main{padding:0 var(--pad) 64px}
-/* Letterhead: every screen opens on a light grey band with its title and its controls */
-.page-head,.band{margin:0 calc(-1 * var(--pad));padding:32px var(--pad);background:var(--paper-2)}
-.page-head{margin-bottom:40px}
-.head-row{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px 32px}
-.head-row>div:first-child{min-width:0;flex:1 1 420px}
-.section-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 24px;margin-bottom:16px}
-.inline-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
-.block{margin-top:56px}
-.block>h3{margin-bottom:16px}
+.nav-panel{display:flex;flex:1;flex-direction:column;min-height:0}
+.tabs{display:flex;flex-direction:column;gap:4px;margin-top:32px}
+.tabs button{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:12px;background:none;color:var(--on-navy-3);font-size:14px;font-weight:500;text-align:left;cursor:pointer;transition:background-color .15s var(--ease),color .15s var(--ease)}
+.tabs button:hover{background:rgba(255,255,255,.07);color:#fff}
+.tabs button[aria-selected=true]{background:var(--gold);color:var(--navy);font-weight:600}
+.tabs button[aria-selected=true]:hover{background:var(--gold-hover)}
+.tabs button:focus-visible{outline-offset:-2px}
+/* Two quiet groups: the websites, then partners and operations */
+#tab-analytics-call,#tab-partners{margin-top:16px}
+#tab-analytics-call[hidden]+#tab-analytics{margin-top:16px}
+.nav-foot{display:flex;flex-direction:column;gap:4px;margin-top:auto;padding-top:16px}
+.linkbtn{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:0 12px;border:0;border-radius:12px;background:none;color:var(--on-navy-3);font-size:14px;font-weight:500;text-align:left;cursor:pointer}
+.linkbtn:hover{background:rgba(255,255,255,.07);color:#fff}
+.side-scrim{display:none}
+.work{min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:16px;min-height:72px;padding:16px 32px;background:var(--ground)}
+.tb-title{min-width:0;flex:1}
+.tb-title p{margin-top:2px;font-size:13px;color:var(--soft)}
+.tb-actions{display:flex;align-items:center;gap:16px}
+.user{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:var(--text);white-space:nowrap}
+.avatar{display:inline-grid;place-items:center;width:32px;height:32px;flex:none;border-radius:50%;background:#E3E8F0;color:var(--navy);font-size:13px;font-weight:600}
+main{padding:8px 32px 48px}
+section[role=tabpanel]{display:grid;gap:var(--gap)}
 
-/* One quiet line of figures under a title: label, then the figure. No tiles. */
-.figline{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 32px;margin-top:16px;font-size:14px}
-.figline .kpi{display:inline;color:var(--soft)}
-.figline .kpi b{margin:0 4px;white-space:nowrap}
-.figline .kpi b{color:var(--navy);font-weight:600;font-variant-numeric:tabular-nums}
-.figline .kpi[data-go]{cursor:pointer;border-radius:var(--r-sm);outline-offset:4px}
-.figline .kpi[data-go]:hover{color:var(--navy);text-decoration:underline;text-decoration-color:var(--gold-mid);text-underline-offset:3px}
-.delta{font-weight:600;font-variant-numeric:tabular-nums}
-.delta.up{color:var(--good)}
-.delta.down{color:var(--critical)}
+/* ---------- Cards ---------- */
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:var(--gap);align-items:stretch}
+.span-4{grid-column:span 4}.span-5{grid-column:span 5}.span-6{grid-column:span 6}.span-7{grid-column:span 7}.span-8{grid-column:span 8}.span-12{grid-column:1/-1}
+.stack{display:grid;gap:var(--gap)}
+.card{min-width:0;padding:var(--card-pad);border:1px solid var(--line);border-radius:var(--rc);background:var(--paper);box-shadow:var(--shadow)}
+.card-head{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px 16px;margin-bottom:20px}
+.card-head>div:first-child{min-width:0}
+.card-sub{margin-top:2px;font-size:13px;color:var(--soft)}
+.card-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.card-head h3 .count{margin-left:8px;color:var(--soft);font-weight:500;font-variant-numeric:tabular-nums}
+.card-foot{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.card-flush{padding:0}
+.card-flush>.card-head{padding:var(--card-pad) var(--card-pad) 0}
 
-/* ---------- The call sheet ---------- */
-.sheet-group+.sheet-group{margin-top:40px}
-.sheet-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;margin-bottom:8px}
-.sheet-head h3 .count{margin-left:8px;color:var(--soft);font-weight:500;font-variant-numeric:tabular-nums}
-.sheet-head .note{flex:1 1 auto}
-.sheet-head .textbtn{margin-left:auto}
-.sheet{list-style:none;margin:0;padding:0}
-/* clock | name and context | phone | town | what they told us */
-.sheet li{display:grid;grid-template-columns:152px minmax(180px,1.1fr) 152px minmax(120px,.7fr) minmax(0,2fr);gap:4px 24px;align-items:baseline;padding:16px 0;border-bottom:1px solid var(--gold-mid);cursor:pointer}
-.sheet li.empty{display:block;padding:8px 0 16px;border-bottom:0;cursor:default;color:var(--soft)}
-.sheet .c-clock{font-size:20px;line-height:1.2}
-.sheet .c-clock .w{display:block;margin-top:2px;font-size:13px;font-weight:400;color:var(--soft)}
-.sheet .c-name{min-width:0}
-.sheet .c-name button{padding:0;border:0;background:none;color:var(--navy);font-size:16px;font-weight:600;line-height:1.3;text-align:left;cursor:pointer}
-.sheet li:hover .c-name button{text-decoration:underline;text-decoration-color:var(--gold-mid);text-underline-offset:3px}
-.sheet .c-name span{display:block;margin-top:2px;font-size:13px;color:var(--soft)}
-.sheet .c-phone{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:14px}
-.sheet .c-town{color:var(--text)}
-.sheet .c-what{min-width:0;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sheet .more-note{display:block;padding-top:8px;border:0;cursor:default}
-.sheet-foot{margin-top:8px}
+/* KPI cards: a label, an icon, one figure, the change against the period before */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--gap)}
+.kpi{display:grid;grid-template-rows:auto 1fr auto;gap:12px;min-height:148px}
+.kpi[data-go]{cursor:pointer;transition:border-color .15s var(--ease)}
+.kpi[data-go]:hover{border-color:var(--field)}
+.kpi-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.kpi-label{font-size:14px;font-weight:500;color:var(--soft)}
+.kpi-ic{display:grid;place-items:center;width:40px;height:40px;flex:none;border-radius:12px;background:#E8ECF2;color:var(--navy)}
+.kpi-ic.gold{background:#F5EEDF;color:var(--gold-ink)}
+.kpi-value{align-self:end;font-size:32px;line-height:1.1;font-weight:600;color:var(--navy);letter-spacing:-.01em}
+.kpi-foot{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;min-height:40px;align-content:flex-start;font-size:13px;color:var(--soft)}
+.chg{display:inline-flex;align-items:center;gap:4px;font-weight:600;font-variant-numeric:tabular-nums}
+.chg .ic{width:16px;height:16px;stroke-width:2}
+.chg.up{color:var(--good)}
+.chg.down{color:var(--critical)}
+.chg.flat{color:var(--soft)}
 
-/* ---------- Ledgers: label left, figure right, hairlines, one ink rule above a total ---------- */
+/* Tables in cards */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.card-flush .table-wrap{padding:0 8px 8px}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;font-size:14px}
+th{padding-top:10px;padding-bottom:10px;background:#F8F9FA;color:var(--soft);font-size:12px;font-weight:600;white-space:nowrap}
+thead th:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm)}
+thead th:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+thead th{border-bottom:0}
+tbody tr:last-child td{border-bottom:0}
+td strong{color:var(--navy)}
+td .sub{display:block;margin-top:2px;color:var(--soft);font-size:13px}
+tbody tr[data-id]{cursor:pointer}
+tbody tr[data-id]:hover td{background:#F8F9FA}
+tbody tr[data-id]:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+.num-col{text-align:right}
+.dtable .c-clock{font-size:16px;white-space:nowrap}
+.dtable .c-phone{white-space:nowrap;font-variant-numeric:tabular-nums}
+.dtable .c-said{color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtable .c-name strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtable .c-name .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Fixed columns, so the long "what they told us" text is the one that gives way */
+.dtable{table-layout:fixed}
+.dtable th:nth-child(1){width:108px}.dtable th:nth-child(2){width:26%}.dtable th:nth-child(3){width:140px}.dtable th:nth-child(5){width:136px}
+
+/* Short lists in the right column */
+.mini{list-style:none;margin:0;padding:0;display:grid}
+.mini li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.mini li:last-child{border-bottom:0}
+.mini li:first-child{padding-top:0}
+.mini li.empty{display:block;padding:4px 0;border:0;cursor:default}
+.mini .who-line{min-width:0}
+.mini .who-line strong{display:block;color:var(--navy);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini .who-line span{display:block;font-size:13px;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini li:hover strong{text-decoration:underline;text-decoration-color:var(--gold-mid);text-underline-offset:3px}
+.mini .meta{text-align:right;font-size:13px;color:var(--soft);white-space:nowrap}
+.mini .meta .clock{display:block;font-size:15px}
+.mini .more-note{display:block;padding-top:10px;border:0;cursor:default}
+
+/* Donut: the ring with its legend beside it */
+.donut{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:24px}
+.donut svg{display:block;width:160px;height:160px;overflow:visible}
+/* In a narrow card the legend goes under the ring, so every name is read in full */
+.donut-wrap{container-type:inline-size}
+@container (max-width:440px){.donut{grid-template-columns:minmax(0,1fr);justify-items:center;gap:20px}.donut .legend{width:100%}}
+.donut .seg{transition:opacity .15s var(--ease);cursor:pointer}
+.donut.focus .seg:not(.on){opacity:.28}
+.donut .d-val{font:600 24px/1 var(--sans);fill:var(--navy);font-variant-numeric:tabular-nums}
+.donut .d-lbl{font:500 12px/1 var(--sans);fill:var(--soft)}
+.legend{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.legend li{display:grid;grid-template-columns:10px minmax(0,1fr) auto auto;align-items:center;gap:8px;padding:4px 6px;margin:0 -6px;border-radius:var(--r-sm);font-size:13px;cursor:default}
+.legend li.on,.legend li:focus-visible{background:#F3F5F8}
+.legend .sw{width:10px;height:10px;border-radius:3px}
+.legend .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.legend .pc{font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums;text-align:right}
+.legend .ct{min-width:3ch;color:var(--soft);font-variant-numeric:tabular-nums;text-align:right}
+.c1{fill:var(--c1);background:var(--c1)}.c2{fill:var(--c2);background:var(--c2)}.c3{fill:var(--c3);background:var(--c3)}
+.c4{fill:var(--c4);background:var(--c4)}.c5{fill:var(--c5);background:var(--c5)}.c6{fill:var(--c6);background:var(--c6)}
+.c-other{fill:var(--c-other);background:var(--c-other)}
+
+/* Horizontal bars: label, a thin bar, the figure */
+.hbars{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.hbars li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:baseline;font-size:13px}
+.hbars .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.hbars .v{font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums}
+.hbars .track{grid-column:1/-1;height:8px;border-radius:4px;background:#EEF1F5}
+.hbars .bar{display:block;height:100%;min-width:4px;border-radius:4px;background:var(--series)}
+
+/* Results: three figures in a row */
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;text-align:center}
+.trio b{display:block;font-size:20px;line-height:1.2;font-weight:600;color:var(--navy);font-variant-numeric:tabular-nums}
+.trio span{display:block;margin-top:4px;font-size:12px;color:var(--soft)}
+
+/* Ledger: label left, figure right, one ink rule above a total (the visit-to-sale statement) */
 .ledger{width:100%;border-collapse:collapse;font-size:14px}
-.ledger th,.ledger td{padding:8px 0;border-bottom:1px solid var(--line);text-align:left;font-weight:400;vertical-align:baseline;white-space:normal}
-.ledger thead th{padding-top:0;color:var(--soft);font-size:13px;font-weight:500;border-bottom-color:var(--line-2)}
+.ledger th,.ledger td{padding:8px 0;border-bottom:1px solid var(--line);background:none;text-align:left;font-weight:400;vertical-align:baseline;white-space:normal;border-radius:0}
+.ledger thead th{padding-top:0;color:var(--soft);font-size:12px;font-weight:600}
 .ledger td,.ledger thead th.num{padding-left:16px;text-align:right;font-variant-numeric:tabular-nums}
-.ledger td{white-space:nowrap}
-.ledger td{color:var(--navy);font-weight:600}
-.ledger td.soft{color:var(--soft);font-weight:400}
-.ledger tbody th{color:var(--text)}
-.ledger tr.sub th{padding-left:16px;color:var(--soft)}
-.ledger tr.sub td{color:var(--text);font-weight:400}
-.ledger tr.sub td.soft{color:var(--soft)}
-.ledger tr.group th{padding-top:24px;color:var(--soft);font-size:13px;font-weight:500;border-bottom-color:var(--line-2)}
+.ledger td{white-space:nowrap;color:var(--navy);font-weight:600}
+.ledger td.soft{color:var(--soft);font-weight:400;font-size:13px}
+.ledger tbody th{color:var(--text);font-size:14px}
+.ledger tr.group th{padding-top:20px;color:var(--soft);font-size:12px;font-weight:600;border-bottom-color:var(--line-2)}
 .ledger tr.group:first-child th{padding-top:0}
 .ledger tr.total th,.ledger tr.total td{padding-top:12px;border-top:1px solid var(--navy);border-bottom:0;color:var(--navy);font-size:20px;font-weight:600}
-.ledger tr.total td.soft{font-size:14px;color:var(--soft);font-weight:400}
+.ledger tr.total td.soft{font-size:13px;color:var(--soft);font-weight:400}
 .ledger .path{overflow-wrap:anywhere}
-.ledger-go{padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.ledger-go:hover{color:var(--navy);text-decoration:underline;text-decoration-color:var(--gold-mid);text-underline-offset:3px}
 .list-more{margin-top:8px}
+.card-flush .list-more{margin:8px var(--card-pad) var(--card-pad)}
+.sub-head{margin:20px 0 12px}
+td.path{overflow-wrap:anywhere}
 
-/* ---------- Dashboard ---------- */
-.dash-main{display:grid;grid-template-columns:minmax(0,2fr) minmax(280px,1fr);gap:48px 64px;align-items:start}
-.dash-main h3{margin-bottom:16px}
-.ledgers{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,320px));gap:32px 64px}
-.ledgers h4{margin-bottom:8px}
-.status-lines ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
-.status-lines li{display:grid;grid-template-columns:180px 160px minmax(0,1fr);gap:4px 16px;align-items:baseline}
-.status-lines .sl-name{color:var(--navy);font-weight:500}
-.status-lines .sl-detail{color:var(--soft)}
-.status-lines .dw{color:var(--text)}
+/* Status lines in the alerts card */
+.status-lines ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px 24px}
+.status-lines li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:12px 16px;border:1px solid var(--line);border-radius:12px}
+.status-lines .sl-name{color:var(--navy);font-weight:600}
+.status-lines .sl-detail{grid-column:1/-1;font-size:13px;color:var(--soft)}
 
 /* ---------- Charts ---------- */
-.chart-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 24px;margin-bottom:16px}
-.chart-head h3{margin:0}
 .chart-note{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:13px;color:var(--soft)}
-/* Legend: a short line for a line, a small column for columns, text in the text colour */
 .lg{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;color:var(--text)}
 .lg i{display:inline-block;flex:none}
 .lg-line{width:16px;height:2px;border-radius:1px;background:var(--series)}
@@ -240,7 +303,7 @@ main{padding:0 var(--pad) 64px}
 .chart .area{fill:var(--series);opacity:.1}
 .chart .dot{fill:var(--series);stroke:var(--paper);stroke-width:2}
 .chart .cross{stroke:var(--navy);stroke-width:1;opacity:.35;shape-rendering:crispEdges}
-.chart .band-hl{fill:var(--paper-2)}
+.chart .band-hl{fill:#F3F5F8}
 .chart .hit{fill:transparent;cursor:crosshair;touch-action:pan-y}
 .tip{position:absolute;top:0;left:0;z-index:3;min-width:148px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper);box-shadow:var(--lift);font-size:13px;line-height:1.45;pointer-events:none;white-space:nowrap}
 .tip-t{margin-bottom:4px;color:var(--soft)}
@@ -254,49 +317,31 @@ main{padding:0 var(--pad) 64px}
 .table-view summary::-webkit-details-marker{display:none}
 .table-view .table-scroll{max-height:320px;margin-top:8px;overflow:auto}
 .table-view table{min-width:0;width:auto}
-.table-view th,.table-view td{padding:4px 24px 4px 0;font-size:13px;border-bottom:1px solid var(--line)}
+.table-view th,.table-view td{padding:4px 24px 4px 0;font-size:13px;background:none;border-bottom:1px solid var(--line);border-radius:0}
 .table-view td+td,.table-view th+th{text-align:right;font-variant-numeric:tabular-nums}
 
 /* ---------- Leads ---------- */
-.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;margin-top:24px}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding:0 var(--card-pad) 16px}
 .toolbar-filter{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--soft)}
 .toolbar-filter select{width:auto;min-width:160px}
 .search{flex:1 1 240px;min-width:200px}
 .toolbar-right{display:flex;flex-wrap:wrap;gap:8px}
-/* Saved views: plain text tabs with a navy underline on the current one */
-.chips{display:flex;flex-wrap:wrap;gap:0 4px;width:100%;margin-bottom:4px;border-bottom:1px solid var(--line-2)}
-.chips button{position:relative;min-height:40px;padding:0 12px;border:0;background:none;color:var(--soft);font-size:14px;font-weight:500;cursor:pointer}
-.chips button:first-child{padding-left:0}
-.chips button:hover{color:var(--navy)}
-.chips button[aria-pressed=true]{color:var(--navy);font-weight:600}
-.chips button[aria-pressed=true]::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2px;background:var(--navy)}
-.chips button:first-child[aria-pressed=true]::after{left:0}
-.chips button:focus-visible{outline-offset:-2px}
-.table-wrap{margin:0 -12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
-table{width:100%;border-collapse:collapse}
+/* Saved views: a row of pills; the current one filled navy */
+.chips{display:flex;flex-wrap:wrap;gap:8px;width:100%}
+.chips button{min-height:36px;padding:0 14px;border:1px solid var(--line-2);border-radius:999px;background:var(--paper);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:border-color .15s var(--ease),background-color .15s var(--ease)}
+.chips button:hover{border-color:var(--navy)}
+.chips button[aria-pressed=true]{border-color:var(--navy);background:var(--navy);color:#fff}
 .leads-table table{min-width:900px}
-th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
-th{padding-top:8px;padding-bottom:8px;border-bottom-color:var(--line-2);color:var(--soft);font-size:13px;font-weight:500;white-space:nowrap}
-td strong{color:var(--navy)}
-td .sub{display:block;margin-top:2px;color:var(--soft);font-size:13px}
-/* In table cells the status dot hangs into the cell padding, so words line up with their column heading */
-td .dw{padding-left:0}
-td .dw::before{left:-12px;width:6px;height:6px;margin-top:-3px}
-td .sub.due{color:var(--critical);font-weight:600}
-tbody tr[data-id]{cursor:pointer}
-tbody tr[data-id]:hover td{background:var(--paper-2)}
-tbody tr[data-id]:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
-td.due{color:var(--critical);font-weight:600}
-.num-col{text-align:right}
-.more{display:flex;justify-content:center;padding:24px 0 0}
+.leads-table td:nth-child(1),.leads-table td:nth-child(2) strong{white-space:nowrap}
+.more{display:flex;justify-content:center;padding:16px 0 var(--card-pad)}
 .cards{display:none}
-.lead-card{display:grid;gap:4px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
-.lead-card .row{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.lead-card{display:grid;gap:4px;padding:12px var(--card-pad);border-bottom:1px solid var(--line);cursor:pointer}
+.lead-card .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .lead-card strong{color:var(--navy)}
 .lead-card .muted{font-size:13px}
-.lead-card .due{color:var(--critical);font-weight:600;font-size:13px}
+#leads-empty{padding:0 var(--card-pad) var(--card-pad)}
 .trash-banner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:var(--r);background:var(--danger-bg);color:#7A271A;font-size:14px;font-weight:500}
-.empty-trash{margin-bottom:24px}
+.empty-trash{margin:0 var(--card-pad) 16px}
 .empty-trash form{flex-basis:100%}
 .empty-trash label,.danger-zone label{display:block;margin-bottom:8px;font-size:14px;font-weight:500}
 .empty-trash input,.danger-zone input{max-width:160px}
@@ -305,57 +350,44 @@ td.due{color:var(--critical);font-weight:600}
 .savebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
 
 /* ---------- Partners ---------- */
-.split{display:grid;grid-template-columns:minmax(0,2fr) minmax(300px,1fr);gap:40px 64px;align-items:start}
-.split+.split{margin-top:56px}
-.split h3{margin-bottom:12px}
 .partner-table table{min-width:600px}
-.partner-table td:first-child{min-width:200px}
+.partner-table td:first-child{min-width:150px}
+/* Forms in a narrow side card take one column */
+.card.form.span-4{grid-template-columns:minmax(0,1fr)}
 .funnel-table table{min-width:640px}
-.split-side{min-width:0}
 
-/* ---------- Forms (lead drawer, new lead, import, partners) ---------- */
+/* ---------- Forms ---------- */
 .form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
 .form>h3,.form .full{grid-column:1/-1}
 .form label{display:grid;align-content:start;gap:6px;font-size:13px;font-weight:500;color:var(--text);min-width:0}
 .form .hint{font-size:13px;font-weight:400;color:var(--soft)}
 .form .sep{margin-top:16px}
 .check{display:flex!important;align-items:center;gap:8px!important;font-size:14px!important;font-weight:400!important}
-.split-side.form{grid-template-columns:1fr 1fr}
-.split-side.form .savebar{margin-top:4px}
 
 /* ---------- Website ---------- */
+.filterbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px}
+.filterbar .src{font-size:14px;color:var(--soft)}
 .analytics-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .analytics-controls label{font-size:13px;font-weight:500;color:var(--soft)}
 .analytics-controls select{width:auto;min-width:160px}
 .analytics-controls .muted{font-size:13px}
-#analytics .page-head{margin-bottom:0}
-#analytics-error{margin-top:32px;padding:12px 16px;border-radius:var(--r);background:var(--danger-bg);color:var(--critical);font-weight:500}
-#analytics-content{transition:opacity .15s var(--ease)}
+#analytics-error{padding:12px 16px;border-radius:var(--r);background:var(--danger-bg);color:var(--critical);font-weight:500}
+#analytics-content{display:grid;gap:var(--gap);transition:opacity .15s var(--ease)}
 #analytics-content.is-stale{opacity:.45;pointer-events:none}
-.band{display:flow-root;padding-top:0;margin-bottom:48px}
-.band .figline{margin-top:0}
-/* The day chart leads; the statement from visit to sale sits beside it */
-.stats-top{display:grid;grid-template-columns:minmax(0,2fr) minmax(320px,1fr);gap:48px 64px;align-items:start}
-.statement h3{margin-bottom:4px}
 .statement .note{margin-bottom:16px}
-.statement .ledger td.soft{font-size:13px}
 .statement-foot{margin-top:12px}
-.stats-mid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px 64px;margin-top:56px;align-items:start}
-.stats-mid h3{margin-bottom:12px}
-.stats-low{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px 64px;margin-top:56px;align-items:start}
-.stats-low h3{margin-bottom:12px}
-/* Reference: devices, browsers, last pages, places. Small and set as text. */
 .reference dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:0 24px;margin:0;font-size:13px}
 .reference dt,.reference dd{padding:8px 0;border-bottom:1px solid var(--line)}
 .reference dt{color:var(--soft);font-weight:500}
 .reference dd{margin:0;color:var(--text);font-variant-numeric:tabular-nums}
 .reference dd span{white-space:nowrap}
 .reference dd span:not(:last-child)::after{content:","}
-.footnote{max-width:72ch;margin-top:56px;font-size:13px;line-height:1.55;color:var(--soft)}
+.reference dt:last-of-type,.reference dd:last-of-type{border-bottom:0}
+.footnote{max-width:72ch;font-size:13px;line-height:1.55;color:var(--soft)}
 
 /* ---------- Drawer ---------- */
-.scrim{position:fixed;inset:0;z-index:30;background:rgba(11,34,62,.42)}
-.drawer{position:fixed;top:0;right:0;bottom:0;z-index:31;width:min(640px,100%);overflow-y:auto;background:var(--paper);box-shadow:-24px 0 48px -24px rgba(11,34,62,.35);padding-bottom:env(safe-area-inset-bottom,0px);overscroll-behavior:contain}
+.scrim{position:fixed;inset:0;z-index:40;background:rgba(11,34,62,.42)}
+.drawer{position:fixed;top:0;right:0;bottom:0;z-index:41;width:min(640px,100%);overflow-y:auto;background:var(--paper);box-shadow:-24px 0 48px -24px rgba(11,34,62,.35);padding-bottom:env(safe-area-inset-bottom,0px);overscroll-behavior:contain}
 .drawer:not([hidden]){animation:drawerIn .24s var(--ease)}
 @keyframes drawerIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
 .d-head{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;gap:16px;padding:20px 24px 16px;background:var(--paper);border-bottom:1px solid var(--line)}
@@ -363,8 +395,8 @@ td.due{color:var(--critical);font-weight:600}
 .d-head h2{font-size:20px;line-height:1.3}
 .d-head p{margin-top:4px;font-size:14px;color:var(--soft)}
 #d-sub{display:flex;flex-wrap:wrap;gap:0 16px}
-.x{flex:none;width:40px;height:40px;margin:-4px -8px 0 auto;border:0;border-radius:var(--r-sm);background:none;color:var(--navy);font-size:26px;line-height:1;cursor:pointer}
-.x:hover{background:var(--paper-2)}
+.x{flex:none;display:grid;place-items:center;width:40px;height:40px;margin:-4px -8px 0 auto;border:0;border-radius:var(--r-sm);background:none;color:var(--navy);cursor:pointer}
+.x:hover{background:var(--ground)}
 .d-body{display:grid;gap:40px;padding:24px 24px 56px}
 .d-body>.trash-banner,.d-body>.dnc,.d-body>.act-note{margin-top:-28px}
 .d-sec>h3{margin-bottom:12px}
@@ -390,13 +422,12 @@ td.due{color:var(--critical);font-weight:600}
 #imp-summary{padding-top:12px;border-top:1px solid var(--line);font-size:13px}
 #imp-summary ul{margin:4px 0 12px;padding-left:20px}
 
-/* ---------- Seller operations ---------- */
-#operations .ops-message{margin-top:16px;font-size:14px;color:var(--text)}
+/* ---------- Seller operations (containers only) ---------- */
+#operations .ops-message{margin-top:12px;font-size:14px;color:var(--text)}
 #operations .ops-message:empty{display:none}
-#operations .ops-access{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:8px 24px;align-items:end;margin-top:24px}
+#operations .ops-access{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:8px 24px;align-items:end;margin-top:20px}
 #operations .ops-access label{display:grid;gap:6px;font-size:13px;font-weight:500}
 #operations .ops-access p{font-size:13px;color:var(--soft)}
-#operations .ops-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:40px 64px;align-items:start}
 #operations .ops-sec>h3{margin-bottom:8px}
 #operations .ops-sec>p{margin-bottom:16px}
 #operations .ops-fields,#operations form{display:grid;gap:16px}
@@ -414,7 +445,6 @@ td.due{color:var(--critical);font-weight:600}
 #operations .ops-item .btn{margin-top:12px}
 #operations .ops-item-state{margin:0 0 4px!important;color:var(--navy)!important;font-weight:600;font-size:14px!important}
 #operations .ops-panel{max-width:760px}
-#operations #ops-review-form{margin:32px 0 0;padding-top:24px;border-top:1px solid var(--line)}
 #operations #ops-review-form hr{width:100%;margin:8px 0;border:0;border-top:1px solid var(--line)}
 #operations .ops-context{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px 16px;margin:0;font-size:13px}
 #operations .ops-context dt{color:var(--soft)}
@@ -422,75 +452,73 @@ td.due{color:var(--critical);font-weight:600}
 #operations .ops-note{font-size:13px;color:var(--soft)}
 #operations #ops-pending:empty{display:none}
 #operations #ops-pending{padding:12px 16px;border-radius:var(--r);background:#FFF6ED;color:#7A2E0E;font-size:13px}
-#operations .ops-metrics{margin:0;overflow-x:auto}
+#operations .ops-metrics{overflow-x:auto}
 #operations .ops-metrics table{min-width:640px}
-#operations .ops-metrics th,#operations .ops-metrics td{padding:8px 12px 8px 0;font-size:13px;white-space:nowrap}
+#operations .ops-metrics th,#operations .ops-metrics td{padding:8px 12px 8px 0;font-size:13px;white-space:nowrap;background:none;border-radius:0}
 #operations #ops-audit h3{margin:16px 0 8px;font-size:14px}
 #operations #ops-audit p{margin-top:8px;font-size:13px;color:var(--soft)}
 #operations #ops-dispatch{margin-bottom:8px;color:var(--soft)}
-#operations #ops-reconcile{margin-top:24px;max-width:760px}
 
 /* ---------- Breakpoints ---------- */
-@media (max-width:1240px){
-  .hq-tag{margin-left:0}
-  .top-in{flex-wrap:wrap;gap:0 16px;min-height:0;padding-top:12px}
-  .tabs{order:4;width:calc(100% + 24px);margin:4px -12px 0;overflow-x:auto}
-  .tabs button{min-height:44px}
-  .sheet li{grid-template-columns:136px minmax(0,1fr) 140px minmax(0,1.4fr)}
-  .sheet .c-town{display:none}
+/* Narrower desktops: the 8/4 rows stack, the 4-wide cards pair up */
+@media (max-width:1279px){
+  .span-8,.span-7,.span-5{grid-column:1/-1}
+  .span-4{grid-column:span 6}
+  .grid{grid-auto-flow:row dense}
+  .mid-full{grid-column:1/-1}
 }
-/* Below 900px the leads table turns into a list of rows */
-@media (max-width:900px){
-  .leads-table{display:none}
-  .cards{display:block}
+/* Tablets and phones: the sidebar becomes a menu that opens over the page */
+@media (max-width:1023px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .side{position:fixed;top:0;bottom:0;left:0;width:min(300px,86vw);transform:translateX(-102%);transition:transform .22s var(--ease);box-shadow:var(--lift)}
+  .side.menu-open{transform:none}
+  .side-scrim{position:fixed;inset:0;z-index:29;display:block;background:rgba(11,34,62,.42)}
+  .side-scrim[hidden]{display:none}
+  .menu-btn{display:inline-grid;place-items:center;width:40px;height:40px;flex:none;border:1px solid var(--line-2);border-radius:var(--r);background:var(--paper);color:var(--navy);cursor:pointer}
+  .topbar{padding:12px 24px}
+  main{padding:8px 24px 40px}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-@media (max-width:1060px){
-  .dash-main,.split,.stats-top,.stats-mid,.stats-low,#operations .ops-grid{grid-template-columns:minmax(0,1fr)}
-  .split-side,.statement{max-width:640px}
-}
-/* Phones: the sections fold into one Menu button; the call sheet stacks each person into one block */
 @media (max-width:700px){
-  :root{--pad:16px}
+  :root{--card-pad:16px;--gap:16px}
   input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea{font-size:16px;min-height:44px}
   .btn{min-height:44px}
   .btn.sm{min-height:36px}
-  .top-in{flex-wrap:nowrap;gap:12px;min-height:56px;padding-top:0}
-  .top img{height:24px}
-  .hq-tag{display:none}
-  .menu-btn{order:1;display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 12px;border:1px solid rgba(255,255,255,.35);border-radius:var(--r-sm);background:none;color:#fff;font:500 14px/1 var(--sans);cursor:pointer}
-  .menu-btn::after{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s var(--ease)}
-  .menu-btn[aria-expanded=true]::after{transform:rotate(-135deg) translateY(-1px)}
-  .btn.top-add{order:2;min-height:36px;padding:0 12px}
-  .nav-panel{display:none;position:absolute;top:100%;left:calc(-1 * var(--pad));right:calc(-1 * var(--pad));z-index:25;padding:4px var(--pad) 16px;background:var(--navy);box-shadow:var(--lift)}
-  .top.menu-open .nav-panel{display:block}
-  .tabs{flex-direction:column;width:auto;margin:0;gap:0;overflow:visible}
-  .tabs button{min-height:48px;padding:0;font-size:16px}
-  .tabs button[aria-selected=true]::after{left:calc(-1 * var(--pad));right:auto;top:12px;bottom:12px;width:3px;height:auto}
-  .nav-foot{justify-content:space-between;margin-top:8px}
-  .page-head{padding-top:24px;padding-bottom:24px;margin-bottom:32px}
-  .band{padding-bottom:24px;margin-bottom:40px}
-  .figline{gap:4px 24px}
-  .block,.stats-mid,.stats-low,.split+.split{margin-top:48px}
-  /* The statement answers "is the site bringing sellers in" first on a phone */
-  .statement{order:-1}
-  .sheet li{grid-template-columns:96px minmax(0,1fr);grid-template-areas:"clock name" "clock phone" "clock what";gap:2px 16px;padding:12px 0}
-  .sheet .c-clock{grid-area:clock;font-size:16px}
-  .sheet .c-name{grid-area:name}
-  .sheet .c-phone{grid-area:phone}
-  .sheet .c-what{grid-area:what;white-space:normal}
-  .sheet .c-town{display:none}
-  .sheet .c-phone .town-inline{display:inline}
-  .sheet-head .textbtn{margin-left:0}
-  .toolbar{gap:12px}
+  .topbar{gap:12px;min-height:64px;padding:12px 16px}
+  h1{font-size:20px}
+  .tb-title p,.user .who{display:none}
+  .btn.top-add{width:44px;padding:0}
+  .btn.top-add .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+  main{padding:4px 16px 32px}
+  .span-4,.span-6{grid-column:1/-1}
+  .kpi{min-height:0;gap:8px}
+  .kpi-value{font-size:26px}
+  .kpi-ic{width:36px;height:36px;border-radius:10px}
+  .donut{grid-template-columns:minmax(0,1fr);justify-items:center}
+  .donut .legend{width:100%}
+  .trio b{font-size:20px}
+  .leads-table{display:none}
+  .cards{display:block}
   .toolbar-filter{flex:1 1 140px}
   .toolbar-filter select{min-width:0;flex:1}
   .toolbar-right{width:100%}
   .toolbar-right .btn{flex:1}
-  .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .chips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
   .chips button{flex:none}
-  .status-lines li{grid-template-columns:minmax(0,1fr) auto}
-  .status-lines .sl-detail{grid-column:1/-1}
-  .form,.split-side.form{grid-template-columns:minmax(0,1fr)}
+  /* The waiting table becomes one block per person */
+  .dtable thead{display:none}
+  .dtable tr{display:grid;grid-template-columns:96px minmax(0,1fr);grid-template-areas:"clock name" "clock phone" "clock said" "clock pill";gap:2px 12px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .dtable tr:last-child{border-bottom:0}
+  .dtable td{padding:0;border:0}
+  .dtable .c-clock{grid-area:clock}
+  .dtable .c-name{grid-area:name}
+  .dtable .c-phone{grid-area:phone;white-space:normal}
+  .dtable .c-town{display:none}
+  .dtable .c-said{grid-area:said;max-width:none;white-space:normal}
+  .dtable .c-pill{grid-area:pill;margin-top:6px}
+  .dtable .town-inline{display:inline}
+  .card-flush .table-wrap{padding:0 var(--card-pad) 8px}
+  .form{grid-template-columns:minmax(0,1fr)}
   .facts{grid-template-columns:minmax(0,1fr)}
   .facts dt{padding-bottom:0;border-bottom:0}
   .facts dd{padding-top:2px}
@@ -501,15 +529,15 @@ td.due{color:var(--critical);font-weight:600}
   .d-head{padding:16px}
   .d-body{padding:20px 16px 48px}
   #operations .ops-access{grid-template-columns:minmax(0,1fr)}
-  .table-wrap{margin:0 -16px;padding:0 4px}
 }
-.sheet .town-inline{display:none}
+.dtable .town-inline{display:none}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
 @media (forced-colors:active){
-  .chart .m-series,.chart .m-lead{fill:CanvasText}
-  .tabs button[aria-selected=true]::after,.chips button[aria-pressed=true]::after,.dw::before{background:CanvasText}
+  .chart .m-series,.chart .m-lead,.seg{fill:CanvasText}
+  .tabs button[aria-selected=true]{outline:2px solid CanvasText}
+  .pill::before{background:CanvasText}
 }
 </style>
 </head>
@@ -517,49 +545,57 @@ td.due{color:var(--critical);font-weight:600}
 
 <section class="login" id="login" hidden>
   <form id="login-form" novalidate>
-    <img src="/assets/call-harbison-reverse.svg" alt="Call Harbison" width="168" height="40">
+    <div class="login-brand"><img src="/assets/call-harbison-reverse.svg" alt="Call Harbison" width="142" height="34"></div>
     <h1>Sign in to HQ</h1>
     <p>The shared desk for Harbison Standard and Call Harbison leads. Team access only.</p>
     <label for="login-name">Your name<input id="login-name" name="name" autocomplete="name" placeholder="Nathanael" maxlength="40"></label>
     <label for="login-password">Password<input id="login-password" name="password" type="password" autocomplete="current-password" required></label>
-    <button class="btn gold" type="submit">Sign in</button>
+    <button class="btn" type="submit">Sign in</button>
     <p class="err" id="login-err" role="alert"></p>
   </form>
 </section>
 
-<div id="app" hidden>
-  <header class="top" id="top">
-    <div class="top-in">
+<div id="app" class="shell" hidden>
+  <aside class="side" id="top" aria-label="HQ">
+    <div class="side-brand">
       <img src="/assets/call-harbison-reverse.svg" alt="Call Harbison" width="126" height="30">
       <span class="hq-tag">Shared HQ</span>
-      <button class="menu-btn" id="hq-menu" type="button" aria-expanded="false" aria-controls="hq-nav">Menu</button>
-      <div class="nav-panel" id="hq-nav">
-        <nav class="tabs" role="tablist" aria-label="HQ sections">
-          <button role="tab" aria-selected="true" data-tab="dash" id="tab-dash" type="button">Today</button>
-          <button role="tab" aria-selected="false" data-tab="leads" id="tab-leads" type="button">Leads</button>
-          <button role="tab" aria-selected="false" data-tab="analytics-call" id="tab-analytics-call" type="button">Call Harbison site</button>
-          <button role="tab" aria-selected="false" data-tab="analytics-standard" id="tab-analytics" type="button">Harbison Standard site</button>
-          <button role="tab" aria-selected="false" data-tab="partners" id="tab-partners" type="button">Partners</button>
-          <button role="tab" aria-selected="false" data-tab="operations" id="tab-operations" type="button">Seller operations</button>
-        </nav>
-        <div class="nav-foot">
-          <span class="who" id="who"></span>
-          <button class="linkbtn" id="logout" type="button">Sign out</button>
-        </div>
-      </div>
-      <button class="btn gold top-add" id="top-new-lead" type="button">New lead</button>
     </div>
-  </header>
+    <div class="nav-panel" id="hq-nav">
+      <nav class="tabs" role="tablist" aria-label="HQ sections" aria-orientation="vertical">
+        <button role="tab" aria-selected="true" data-tab="dash" id="tab-dash" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg><span class="label">Overview</span></button>
+        <button role="tab" aria-selected="false" data-tab="leads" id="tab-leads" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 20v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 18.5V20"/><circle cx="10" cy="8" r="3.5"/><path d="M20 20v-1.5a3.5 3.5 0 0 0-2.5-3.35"/><path d="M15.5 4.65a3.5 3.5 0 0 1 0 6.7"/></svg><span class="label">Leads</span></button>
+        <button role="tab" aria-selected="false" data-tab="analytics-call" id="tab-analytics-call" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v16h16"/><path d="m7 14 4-4 3 3 5-6"/></svg><span class="label">Call Harbison site</span></button>
+        <button role="tab" aria-selected="false" data-tab="analytics-standard" id="tab-analytics" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.2 2.3 3.4 5.2 3.4 8.5s-1.2 6.2-3.4 8.5c-2.2-2.3-3.4-5.2-3.4-8.5S9.8 5.8 12 3.5z"/></svg><span class="label">Harbison Standard site</span></button>
+        <button role="tab" aria-selected="false" data-tab="partners" id="tab-partners" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1"/><path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg><span class="label">Partners</span></button>
+        <button role="tab" aria-selected="false" data-tab="operations" id="tab-operations" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h1.5A1.5 1.5 0 0 1 19 6.5v13a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-13A1.5 1.5 0 0 1 6.5 5H8"/><path d="m9 14 2 2 4-4"/></svg><span class="label">Seller operations</span></button>
+      </nav>
+      <div class="nav-foot">
+        <button class="linkbtn" id="logout" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3"/><path d="m15 16 4-4-4-4"/><path d="M19 12H9"/></svg>Sign out</button>
+      </div>
+    </div>
+  </aside>
+  <div class="side-scrim" id="side-scrim" hidden></div>
 
-  <main>
+  <div class="work">
+    <header class="topbar">
+      <button class="menu-btn" id="hq-menu" type="button" aria-expanded="false" aria-controls="top"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span class="sr-only">Menu</span></button>
+      <div class="tb-title"><h1 id="page-title">Overview</h1><p id="dash-date"></p></div>
+      <div class="tb-actions">
+        <button class="btn top-add" id="top-new-lead" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span class="lbl">New lead</span></button>
+        <span class="user"><span class="avatar" id="who-initial" aria-hidden="true"></span><span class="who" id="who"></span></span>
+      </div>
+    </header>
+
+    <main>
 <section id="operations" role="tabpanel" aria-labelledby="tab-operations" hidden>
- <div class="page-head">
-  <div class="head-row"><div><h2>Seller operations</h2><p class="intro">Jay and Billy take intake and follow-up. Property and transaction questions go to Nathanael.</p></div><button class="btn ghost" id="ops-refresh" type="button">Refresh</button></div>
+ <div class="card">
+  <div class="card-head"><div><h2 class="sr-only">Seller operations</h2><h3>Who does what</h3><p class="card-sub">Jay and Billy take intake and follow-up. Property and transaction questions go to Nathanael.</p></div><div class="card-tools"><button class="btn ghost" id="ops-refresh" type="button">Refresh</button></div></div>
   <p id="ops-message" class="ops-message" role="status" aria-live="polite"></p>
   <div class="ops-access"><label>Reviewer password <input id="ops-review-key" type="password" autocomplete="off"></label><p>Needed for research imports, reviews, links and reconciling notifications. Display names are audit labels, not verified identities.</p></div>
  </div>
- <div class="ops-grid">
-  <div class="ops-sec"><h3>Research import</h3><p class="muted">Research is not seller intent or contact permission. Exact repeated source revisions are ignored; changed source records remain separate history.</p>
+ <div class="grid">
+  <div class="card ops-sec span-5"><h3>Research import</h3><p class="muted">Research is not seller intent or contact permission. Exact repeated source revisions are ignored; changed source records remain separate history.</p>
    <div class="ops-fields">
     <label>Format <select id="ops-format"><option value="json">JSON</option><option value="csv">CSV</option></select></label>
     <label>Research records <textarea id="ops-raw" rows="7" placeholder='[{"source_system":"synthetic","source_record_id":"sample-1","jurisdiction":"Kern","apn":"SYNTHETIC-001","assertions":["Owner UNKNOWN"]}]'></textarea></label>
@@ -567,15 +603,15 @@ td.due{color:var(--critical);font-weight:600}
     <pre id="ops-preview-result"></pre>
    </div>
   </div>
-  <div class="ops-sec"><h3>Source results</h3><p class="muted">Current records, not a history. Response times count only recorded contact. Reopening can lower qualified and outcome counts. Historical imports and research are left out.</p><div id="ops-metrics"></div></div>
+  <div class="card ops-sec span-7"><h3>Source results</h3><p class="muted">Current records, not a history. Response times count only recorded contact. Reopening can lower qualified and outcome counts. Historical imports and research are left out.</p><div id="ops-metrics"></div></div>
  </div>
- <div class="block"><h3>Research review queue</h3><div id="ops-research" class="ops-list"></div></div>
- <form id="ops-review-form" class="ops-panel" hidden>
+ <div class="card"><h3>Research review queue</h3><div id="ops-research" class="ops-list"></div></div>
+ <form id="ops-review-form" class="card ops-panel" hidden>
   <h3>Review selected source revision</h3><p id="ops-selected-research" class="muted"></p><label>Decision <select name="verification_state"><option value="hold">Hold</option><option value="verified_facts">Facts verified, no contact permission</option><option value="rejected">Rejected</option></select></label>
   <label><input type="checkbox" name="ownership_title_representation_checked"> Current owner, mailing, title and representation checked with evidence; not a name-only match</label><label>Hold reason <input name="hold_reason" maxlength="2000"></label><label>Evidence <textarea name="evidence" required maxlength="2000"></textarea></label><div><button class="btn">Save review</button></div>
   <hr><label>Link to genuine inquiry <select id="ops-link-lead"></select></label><label><input id="ops-link-identity" type="checkbox"> I verified that this requester and property match the inquiry, using the evidence above</label><div><button type="button" class="btn ghost" id="ops-link">Approve evidence-based link</button></div><p class="ops-note">Needs verified facts, no open conflicts, matching addresses and a genuine inquiry with response permission. It never creates a lead or changes marketing consent.</p><div id="ops-audit"></div>
  </form>
- <div class="block ops-panel"><h3>Inquiry workbench</h3>
+ <div class="card ops-panel"><h3 style="margin-bottom:16px">Inquiry workbench</h3>
  <form id="ops-workflow">
   <label>Inquiry <select id="ops-lead" name="id" required></select></label><div id="ops-lead-context"></div>
   <label>Record actual event <select name="event" id="ops-event"><option value="followup">Assign or internal follow-up</option><option value="response_permission">Record response permission</option><option value="contact_attempt">Contact attempt or conversation</option><option value="qualify">Qualification checklist</option><option value="handoff">Handoff to Nathanael</option><option value="appointment_booked">Book appointment</option><option value="appointment_result">Record appointment result</option><option value="outcome">Record outcome</option><option value="reopen">Reopen closed inquiry</option><option value="suppress">Suppress contact</option><option value="spam">Mark as spam (with evidence)</option></select></label>
@@ -588,138 +624,127 @@ td.due{color:var(--critical);font-weight:600}
   <label>Evidence or agreed next step <textarea name="detail" required maxlength="2000"></textarea></label><p class="ops-note">Records what already happened. Sends no email, text or call. Response permission is not marketing permission.</p><p id="ops-pending" role="status"></p><div><button id="ops-submit" class="btn">Record event</button></div>
  </form>
  </div>
- <div class="block"><h3>Notification recovery</h3><p id="ops-dispatch"></p><div id="ops-outbox" class="ops-list"></div></div>
- <form id="ops-reconcile" hidden><h3>Reconcile provider result</h3><label>Decision <select name="state"><option value="accepted">Provider confirms acceptance</option><option value="pending">Provider confirms not accepted, queue a retry</option></select></label><label>Provider evidence <textarea name="evidence" required minlength="10" maxlength="2000"></textarea></label><div><button class="btn">Save reconciliation</button></div></form>
+ <div class="card"><h3 style="margin-bottom:8px">Notification recovery</h3><p id="ops-dispatch"></p><div id="ops-outbox" class="ops-list"></div></div>
+ <form id="ops-reconcile" class="card ops-panel" hidden><h3>Reconcile provider result</h3><label>Decision <select name="state"><option value="accepted">Provider confirms acceptance</option><option value="pending">Provider confirms not accepted, queue a retry</option></select></label><label>Provider evidence <textarea name="evidence" required minlength="10" maxlength="2000"></textarea></label><div><button class="btn">Save reconciliation</button></div></form>
 </section>
 
-    <section id="dash" role="tabpanel" aria-labelledby="tab-dash">
-      <div class="page-head">
-        <h2 id="dash-date">Today</h2>
-        <div class="figline" id="kpis"></div>
-      </div>
-      <div class="sheet-group">
-        <div class="sheet-head">
-          <h3>Waiting for a first call<span class="count" id="count-waiting"></span></h3>
-          <p class="note">Questions about price, negotiation or a contract go to Nathanael</p>
-          <button class="textbtn" type="button" data-go-view="new">All new leads</button>
-        </div>
-        <ul class="sheet" id="waiting"></ul>
-        <p class="note sheet-foot">The clock turns amber after an hour and red after 24 hours, the reply time the site promises</p>
-      </div>
-      <div class="sheet-group">
-        <div class="sheet-head">
-          <h3>Follow-ups due<span class="count" id="count-followups"></span></h3>
-          <button class="textbtn" type="button" data-go-view="followups">All follow-ups</button>
-        </div>
-        <ul class="sheet" id="followups-due"></ul>
-      </div>
-      <div class="sheet-group">
-        <div class="sheet-head"><h3>Appointments</h3></div>
-        <ul class="sheet" id="upcoming"></ul>
-      </div>
-      <div class="dash-main block">
-        <div>
-          <div class="chart-head"><h3>Leads per week</h3><p class="chart-note" id="spark-l"></p></div>
-          <div class="chart" id="spark"></div>
-        </div>
-        <div>
-          <h3>Where each seller stands</h3>
-          <div id="by-status"></div>
-        </div>
-      </div>
-      <div class="block">
-        <h3>The last 30 days</h3>
-        <div class="ledgers">
-          <div><h4>By source</h4><div id="by-channel"></div></div>
-          <div><h4>By path of interest</h4><div id="by-route"></div></div>
-          <div><h4>By brand</h4><div id="by-brand"></div></div>
-        </div>
-      </div>
-      <div class="block" id="health-card">
-        <div class="section-head">
-          <h3>Lead alerts and connections</h3>
-          <div class="inline-actions">
-            <button class="btn ghost sm" id="test-alert-btn" type="button">Send test email alert</button>
-            <span class="status-msg" id="test-alert-msg" role="status"></span>
+      <section id="dash" role="tabpanel" aria-labelledby="tab-dash">
+        <div class="kpis" id="kpis"></div>
+        <div class="grid">
+          <div class="card span-8">
+            <div class="card-head"><div><h3>Leads per week</h3><p class="card-sub">Last 12 weeks</p></div><p class="chart-note" id="spark-l"></p></div>
+            <div class="chart" id="spark"></div>
+          </div>
+          <div class="card span-4">
+            <div class="card-head"><div><h3>Pipeline by stage</h3><p class="card-sub">Open leads, as of now</p></div></div>
+            <div id="by-status"></div>
+          </div>
+          <div class="card card-flush span-8">
+            <div class="card-head"><div><h3>Waiting for a first call<span class="count" id="count-waiting"></span></h3><p class="card-sub">Longest wait first. Questions about price, negotiation or a contract go to Nathanael</p></div><div class="card-tools"><button class="textbtn" type="button" data-go-view="new">All new leads</button></div></div>
+            <div class="table-wrap">
+              <table class="dtable">
+                <thead><tr><th>Waiting</th><th>Lead</th><th>Phone</th><th>What they told us</th><th>Status</th></tr></thead>
+                <tbody id="waiting"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="stack span-4">
+            <div class="card">
+              <div class="card-head"><div><h3>Follow-ups due<span class="count" id="count-followups"></span></h3><p class="card-sub">Oldest first</p></div><div class="card-tools"><button class="textbtn" type="button" data-go-view="followups">All</button></div></div>
+              <ul class="mini" id="followups-due"></ul>
+            </div>
+            <div class="card">
+              <div class="card-head"><div><h3>Appointments</h3><p class="card-sub">Next booked</p></div></div>
+              <ul class="mini" id="upcoming"></ul>
+            </div>
+          </div>
+          <div class="card span-4">
+            <div class="card-head"><div><h3>Where leads came from</h3><p class="card-sub">Last 30 days</p></div></div>
+            <div id="by-channel"></div>
+          </div>
+          <div class="card span-4">
+            <div class="card-head"><div><h3>Path of interest</h3><p class="card-sub">Last 30 days</p></div></div>
+            <div id="by-route"></div>
+          </div>
+          <div class="card span-4 mid-full">
+            <div class="card-head"><div><h3>Results</h3><p class="card-sub">First calls and closings</p></div></div>
+            <div id="results"></div>
+            <div class="card-foot"><h4>By brand, last 30 days</h4><div id="by-brand"></div></div>
+          </div>
+          <div class="card span-12" id="health-card">
+            <div class="card-head"><div><h3>Lead alerts and connections</h3><p class="card-sub">What happens when a lead comes in</p></div>
+              <div class="card-tools"><span class="status-msg" id="test-alert-msg" role="status"></span><button class="btn ghost sm" id="test-alert-btn" type="button">Send test email alert</button></div>
+            </div>
+            <div id="health-items" class="status-lines muted">Checking connections…</div>
           </div>
         </div>
-        <div id="health-items" class="status-lines muted">Checking connections…</div>
-      </div>
-    </section>
+      </section>
 
-    <section id="partners" role="tabpanel" aria-labelledby="tab-partners" hidden>
-      <div class="page-head">
-        <h2>Partners and ad spend</h2>
-        <p class="intro">Who sends families our way, and what each channel costs per lead.</p>
-      </div>
-      <div class="split">
-        <div>
-          <h3>Partner scoreboard</h3>
-          <div class="table-wrap partner-table">
-            <table>
-              <thead><tr><th>Partner</th><th>Status</th><th class="num-col">Inquiries</th><th class="num-col">Appts</th><th class="num-col">Closed</th><th class="num-col">Profit</th><th>Link</th></tr></thead>
-              <tbody id="partner-rows"></tbody>
-            </table>
+      <section id="partners" role="tabpanel" aria-labelledby="tab-partners" hidden>
+        <div class="grid">
+          <div class="card card-flush span-8">
+            <div class="card-head"><div><h3>Partner scoreboard</h3><p class="card-sub">Who sends families our way</p></div></div>
+            <div class="table-wrap partner-table">
+              <table>
+                <thead><tr><th>Partner</th><th>Status</th><th class="num-col">Inquiries</th><th class="num-col">Appts</th><th class="num-col">Closed</th><th class="num-col">Profit</th><th>Link</th></tr></thead>
+                <tbody id="partner-rows"></tbody>
+              </table>
+            </div>
           </div>
-        </div>
-        <form class="form split-side" id="partner-form" novalidate>
-          <h3 class="full">Add or update a partner</h3>
-          <label>Short-link slug<input id="p-slug" name="slug" placeholder="rosewood" maxlength="40" required><span class="hint">Their link: callharbison.com/family?ref=slug</span></label>
-          <label>Partner name<input id="p-name" name="name" placeholder="Rosewood Senior Living" maxlength="120" required></label>
-          <label>Category<select id="p-category" name="category">
-            <option value="placement">Senior placement</option>
-            <option value="senior_community">Senior community</option>
-            <option value="estate_sale">Estate sale</option>
-            <option value="fiduciary">Fiduciary</option>
-            <option value="elder_law">Elder law or estate attorney</option>
-            <option value="move_manager">Move manager</option>
-            <option value="other">Other</option>
-          </select></label>
-          <label>Status<select id="p-status" name="status">
-            <option value="prospect">Prospect</option>
-            <option value="contacted">Contacted</option>
-            <option value="meeting_set">Meeting set</option>
-            <option value="active">Active</option>
-            <option value="paused">Paused</option>
-            <option value="declined">Declined</option>
-          </select></label>
-          <label>Contact person<input id="p-contact_name" name="contact_name" maxlength="120"></label>
-          <label>Phone<input id="p-contact_phone" name="contact_phone" type="tel" maxlength="40"></label>
-          <p class="note full">A resource relationship only: no per-referral fee without broker or counsel approval</p>
-          <div class="savebar full"><button class="btn" type="submit">Save partner</button><span class="status-msg" id="p-msg" role="status"></span></div>
-        </form>
-      </div>
-
-      <div class="split">
-        <div>
-          <h3>Monthly cost per lead and return on ad spend</h3>
-          <div class="table-wrap funnel-table">
-            <table>
-              <thead><tr><th>Month</th><th>Channel</th><th class="num-col">Leads</th><th class="num-col">Qualified</th><th class="num-col">Closed</th><th class="num-col">Spend</th><th class="num-col">Cost per lead</th><th class="num-col">ROAS</th></tr></thead>
-              <tbody id="funnel-rows"></tbody>
-            </table>
+          <form class="card form span-4" id="partner-form" novalidate>
+            <h3 class="full">Add or update a partner</h3>
+            <label>Short-link slug<input id="p-slug" name="slug" placeholder="rosewood" maxlength="40" required><span class="hint">Their link: callharbison.com/family?ref=slug</span></label>
+            <label>Partner name<input id="p-name" name="name" placeholder="Rosewood Senior Living" maxlength="120" required></label>
+            <label>Category<select id="p-category" name="category">
+              <option value="placement">Senior placement</option>
+              <option value="senior_community">Senior community</option>
+              <option value="estate_sale">Estate sale</option>
+              <option value="fiduciary">Fiduciary</option>
+              <option value="elder_law">Elder law or estate attorney</option>
+              <option value="move_manager">Move manager</option>
+              <option value="other">Other</option>
+            </select></label>
+            <label>Status<select id="p-status" name="status">
+              <option value="prospect">Prospect</option>
+              <option value="contacted">Contacted</option>
+              <option value="meeting_set">Meeting set</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="declined">Declined</option>
+            </select></label>
+            <label>Contact person<input id="p-contact_name" name="contact_name" maxlength="120"></label>
+            <label>Phone<input id="p-contact_phone" name="contact_phone" type="tel" maxlength="40"></label>
+            <p class="note full">A resource relationship only: no per-referral fee without broker or counsel approval</p>
+            <div class="savebar full"><button class="btn" type="submit">Save partner</button><span class="status-msg" id="p-msg" role="status"></span></div>
+          </form>
+          <div class="card card-flush span-8">
+            <div class="card-head"><div><h3>Cost per lead and return on ad spend</h3><p class="card-sub">By month and channel</p></div></div>
+            <div class="table-wrap funnel-table">
+              <table>
+                <thead><tr><th>Month</th><th>Channel</th><th class="num-col">Leads</th><th class="num-col">Qualified</th><th class="num-col">Closed</th><th class="num-col">Spend</th><th class="num-col">Cost per lead</th><th class="num-col">ROAS</th></tr></thead>
+                <tbody id="funnel-rows"></tbody>
+              </table>
+            </div>
           </div>
+          <form class="card form span-4" id="spend-form" novalidate>
+            <h3 class="full">Record monthly ad spend</h3>
+            <label>Month<input id="s-month" name="month" type="month" required></label>
+            <label>Channel<select id="s-channel" name="channel">
+              <option value="google_ads">Google Ads</option>
+              <option value="social">Social</option>
+              <option value="youtube">YouTube</option>
+              <option value="campaign">Campaign</option>
+            </select></label>
+            <label>Campaign<input id="s-campaign" name="campaign" value="all" maxlength="80"></label>
+            <label>Spend ($)<input id="s-spend" name="spend" inputmode="decimal" placeholder="1200" required></label>
+            <div class="savebar full"><button class="btn" type="submit">Save spend</button><span class="status-msg" id="s-msg" role="status"></span></div>
+          </form>
         </div>
-        <form class="form split-side" id="spend-form" novalidate>
-          <h3 class="full">Record monthly ad spend</h3>
-          <label>Month<input id="s-month" name="month" type="month" required></label>
-          <label>Channel<select id="s-channel" name="channel">
-            <option value="google_ads">Google Ads</option>
-            <option value="social">Social</option>
-            <option value="youtube">YouTube</option>
-            <option value="campaign">Campaign</option>
-          </select></label>
-          <label>Campaign<input id="s-campaign" name="campaign" value="all" maxlength="80"></label>
-          <label>Spend ($)<input id="s-spend" name="spend" inputmode="decimal" placeholder="1200" required></label>
-          <div class="savebar full"><button class="btn" type="submit">Save spend</button><span class="status-msg" id="s-msg" role="status"></span></div>
-        </form>
-      </div>
-    </section>
+      </section>
 
-    <section id="analytics" role="tabpanel" aria-labelledby="tab-analytics" hidden>
-      <div class="page-head">
-        <div class="head-row">
-          <div><h2 id="analytics-title">Website</h2><p class="intro" id="analytics-source"></p></div>
+      <section id="analytics" role="tabpanel" aria-labelledby="tab-analytics" hidden>
+        <div class="filterbar">
+          <div><h2 class="sr-only" id="analytics-title">Website</h2><p class="src" id="analytics-source"></p></div>
           <div class="analytics-controls">
             <label for="analytics-days">Date range</label>
             <select id="analytics-days"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
@@ -727,76 +752,74 @@ td.due{color:var(--critical);font-weight:600}
             <span class="muted" id="analytics-status" role="status"></span>
           </div>
         </div>
-      </div>
-      <p id="analytics-error" role="alert" hidden></p>
-      <div id="analytics-content" hidden>
-        <div class="band"><div class="figline" id="analytics-kpis"></div></div>
-        <div class="stats-top">
-          <div>
-            <div class="chart-head"><h3 id="analytics-traffic-title">Visits per day</h3><p class="chart-note" id="analytics-traffic-note"></p></div>
-            <div class="chart" id="analytics-traffic"></div>
+        <p id="analytics-error" role="alert" hidden></p>
+        <div id="analytics-content" hidden>
+          <div class="kpis" id="analytics-kpis"></div>
+          <div class="grid" id="analytics-row">
+            <div class="card span-8">
+              <div class="card-head"><div><h3 id="analytics-traffic-title">Visits per day</h3><p class="card-sub" id="analytics-range"></p></div><p class="chart-note" id="analytics-traffic-note"></p></div>
+              <div class="chart" id="analytics-traffic"></div>
+            </div>
+            <div class="card span-4 statement" id="analytics-funnel"></div>
+            <div class="card span-4" id="analytics-sources"></div>
+            <div class="card span-4" id="analytics-devices"></div>
+            <div class="card span-4 hours" id="analytics-hours"></div>
+            <div class="card card-flush span-8" id="analytics-pages"></div>
+            <div class="card span-4" id="analytics-referrers"></div>
+            <div class="card span-12 reference" id="analytics-groups"></div>
           </div>
-          <div class="statement" id="analytics-funnel"></div>
         </div>
-        <div class="stats-mid">
-          <div id="analytics-sources"></div>
-          <div id="analytics-pages"></div>
-        </div>
-        <div class="stats-low" id="analytics-row">
-          <div class="hours" id="analytics-hours"></div>
-          <div class="reference" id="analytics-groups"></div>
-        </div>
-      </div>
-      <p class="footnote">Counts come from the site's own tracker. Bots and HQ pages are left out. Visitors are daily estimates added up, not distinct people. Time on site is estimated, and privacy settings or blocked scripts lower every count. <span id="analytics-tz">Days use UTC.</span> Collection began with this release; older Google Analytics history is not imported.</p>
-    </section>
+        <p class="footnote">Counts come from the site's own tracker. Bots and HQ pages are left out. Visitors are daily estimates added up, not distinct people. Time on site is estimated, and privacy settings or blocked scripts lower every count. <span id="analytics-tz">Days use UTC.</span> Collection began with this release; older Google Analytics history is not imported.</p>
+      </section>
 
-    <section id="leads" role="tabpanel" aria-labelledby="tab-leads" hidden>
-      <div class="page-head">
-        <div class="head-row">
-          <div><h2>Leads</h2></div>
-          <div class="toolbar-right">
-            <button class="btn ghost" id="import-btn" type="button">Import</button>
-            <button class="btn ghost" id="export-csv" type="button">Export CSV</button>
-            <!-- The header's New lead is the one main action; this twin stays for its hook but is not shown. -->
-            <button class="btn" id="leads-new-btn" type="button" hidden>New lead</button>
+      <section id="leads" role="tabpanel" aria-labelledby="tab-leads" hidden>
+        <div class="card card-flush">
+          <div class="card-head">
+            <div><h3>All leads</h3><p class="card-sub">Both brands, newest first</p></div>
+            <div class="card-tools toolbar-right">
+              <button class="btn ghost" id="import-btn" type="button">Import</button>
+              <button class="btn ghost" id="export-csv" type="button">Export CSV</button>
+              <!-- The top bar's New lead is the one main action; this twin stays for its hook but is not shown. -->
+              <button class="btn" id="leads-new-btn" type="button" hidden>New lead</button>
+            </div>
           </div>
-        </div>
-        <div class="toolbar">
-          <div class="chips" id="views" role="group" aria-label="Saved views">
-            <button type="button" data-view="open" aria-pressed="true">Open</button>
-            <button type="button" data-view="new" aria-pressed="false">New</button>
-            <button type="button" data-view="followups" aria-pressed="false">Follow-ups due</button>
-            <button type="button" data-view="closed" aria-pressed="false">Closed</button>
-            <button type="button" data-view="spam" aria-pressed="false">Spam</button>
-            <button type="button" data-view="all" aria-pressed="false">All</button>
-            <button type="button" data-view="trash" aria-pressed="false">Trash</button>
+          <div class="toolbar">
+            <div class="chips" id="views" role="group" aria-label="Saved views">
+              <button type="button" data-view="open" aria-pressed="true">Open</button>
+              <button type="button" data-view="new" aria-pressed="false">New</button>
+              <button type="button" data-view="followups" aria-pressed="false">Follow-ups due</button>
+              <button type="button" data-view="closed" aria-pressed="false">Closed</button>
+              <button type="button" data-view="spam" aria-pressed="false">Spam</button>
+              <button type="button" data-view="all" aria-pressed="false">All</button>
+              <button type="button" data-view="trash" aria-pressed="false">Trash</button>
+            </div>
+            <label class="toolbar-filter" for="brand">Brand <select id="brand"><option value="">Both brands</option><option value="harbison_standard">Harbison Standard</option><option value="call_harbison">Call Harbison</option></select></label>
+            <label class="toolbar-filter" for="stage-filter">Stage <select id="stage-filter"><option value="">Any stage</option></select></label>
+            <label class="sr-only" for="q">Search leads</label>
+            <input class="search" id="q" type="search" placeholder="Name, phone, address or email">
           </div>
-          <label class="toolbar-filter" for="brand">Brand <select id="brand"><option value="">Both brands</option><option value="harbison_standard">Harbison Standard</option><option value="call_harbison">Call Harbison</option></select></label>
-          <label class="toolbar-filter" for="stage-filter">Stage <select id="stage-filter"><option value="">Any stage</option></select></label>
-          <label class="sr-only" for="q">Search leads</label>
-          <input class="search" id="q" type="search" placeholder="Name, phone, address or email">
+          <div class="trash-banner empty-trash" id="empty-trash" hidden>
+            <span id="empty-trash-text"></span>
+            <button class="btn danger-ghost" type="button" id="empty-trash-start">Empty Trash</button>
+            <form id="empty-trash-form" hidden novalidate>
+              <label for="empty-trash-confirm">Type <strong>DELETE</strong> to confirm</label>
+              <div class="savebar"><input id="empty-trash-confirm" autocomplete="off" spellcheck="false" maxlength="10"><button class="btn danger" type="submit" id="empty-trash-go" disabled>Delete forever</button><button class="btn ghost" type="button" id="empty-trash-cancel">Cancel</button></div>
+            </form>
+            <p class="status-msg" id="empty-trash-msg" role="status"></p>
+          </div>
+          <div class="table-wrap leads-table">
+            <table>
+              <thead><tr><th>Received</th><th>Contact</th><th>Property</th><th>Inquiry</th><th>Stage</th><th>Next follow-up</th><th>Brand and source</th></tr></thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+          <div class="cards" id="cards"></div>
+          <p class="empty" id="leads-empty" hidden>No leads match</p>
+          <div class="more"><button class="btn ghost" id="more" type="button" hidden>Load more</button></div>
         </div>
-      </div>
-      <div class="trash-banner empty-trash" id="empty-trash" hidden>
-        <span id="empty-trash-text"></span>
-        <button class="btn danger-ghost" type="button" id="empty-trash-start">Empty Trash</button>
-        <form id="empty-trash-form" hidden novalidate>
-          <label for="empty-trash-confirm">Type <strong>DELETE</strong> to confirm</label>
-          <div class="savebar"><input id="empty-trash-confirm" autocomplete="off" spellcheck="false" maxlength="10"><button class="btn danger" type="submit" id="empty-trash-go" disabled>Delete forever</button><button class="btn ghost" type="button" id="empty-trash-cancel">Cancel</button></div>
-        </form>
-        <p class="status-msg" id="empty-trash-msg" role="status"></p>
-      </div>
-      <div class="table-wrap leads-table">
-        <table>
-          <thead><tr><th>Received</th><th>Contact</th><th>Property</th><th>Inquiry</th><th>Stage</th><th>Next follow-up</th><th>Brand and source</th></tr></thead>
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
-      <div class="cards" id="cards"></div>
-      <p class="empty" id="leads-empty" hidden>No leads match.</p>
-      <div class="more"><button class="btn ghost" id="more" type="button" hidden>Load more</button></div>
-    </section>
-  </main>
+      </section>
+    </main>
+  </div>
 </div>
 
 <div class="scrim" id="scrim" hidden></div>
@@ -804,7 +827,7 @@ td.due{color:var(--critical);font-weight:600}
 <aside class="drawer" id="drawer" hidden aria-modal="true" role="dialog" aria-labelledby="d-name">
   <div class="d-head">
     <div><h2 id="d-name"></h2><p id="d-sub"></p></div>
-    <button class="x" id="d-close" type="button" aria-label="Close">×</button>
+    <button class="x" id="d-close" type="button" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
   <div class="d-body">
     <div class="actions" id="d-actions"></div>
@@ -886,8 +909,8 @@ td.due{color:var(--critical);font-weight:600}
 
 <aside class="drawer" id="new-drawer" hidden aria-modal="true" role="dialog" aria-labelledby="new-title">
   <div class="d-head">
-    <div><h2 id="new-title">New lead</h2><p>A call, walk-in or referral, straight onto the call sheet.</p></div>
-    <button class="x" id="new-close" type="button" aria-label="Close">×</button>
+    <div><h2 id="new-title">New lead</h2><p>A call, walk-in or referral, straight onto the waiting list.</p></div>
+    <button class="x" id="new-close" type="button" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
   <div class="d-body">
     <form class="form" id="new-form" novalidate>
@@ -924,7 +947,7 @@ td.due{color:var(--critical);font-weight:600}
 <aside class="drawer" id="import-drawer" hidden aria-modal="true" role="dialog" aria-labelledby="import-title">
   <div class="d-head">
     <div><h2 id="import-title">Import past leads</h2><p>CSV or JSON. Duplicates are skipped; original dates, notes, stages and brand are kept.</p></div>
-    <button class="x" id="import-close" type="button" aria-label="Close">×</button>
+    <button class="x" id="import-close" type="button" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
   <div class="d-body">
     <form class="form" id="import-form" novalidate>
