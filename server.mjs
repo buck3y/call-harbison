@@ -13,6 +13,7 @@ import hqHandler, { noteHqSetup } from './api/hq.js';
 import intakeHandler from './api/intake.js';
 import trackHandler from './api/track.js';
 import mcpHandler from './api/mcp.js';
+import assistantHandler, { assistantStatus } from './api/assistant.js';
 import { flushAnalytics } from './lib/analytics-store.js';
 import { closeLocalDatabase, databaseMode, openLocalDatabase, startDailyBackups, useDatabase } from './lib/local-database.js';
 import { applyPublicPolicy } from './lib/csp.js';
@@ -26,8 +27,8 @@ export { flushAnalytics };
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const MAX_BODY_BYTES = 4.5 * 1024 * 1024; // the ceiling Vercel applies to a function request
 const DEFAULT_CACHE = 'public, max-age=0, must-revalidate';
-// /api/mcp answers 404 until MCP_TOKEN is set (docs/MCP.md).
-const API = { '/api/leads': leadsHandler, '/api/hq': hqHandler, '/api/intake': intakeHandler, '/api/track': trackHandler, '/api/mcp': mcpHandler };
+// /api/mcp answers 404 until MCP_TOKEN is set (docs/MCP.md), /api/assistant until ASSISTANT=on (docs/ASSISTANT.md).
+const API = { '/api/leads': leadsHandler, '/api/hq': hqHandler, '/api/intake': intakeHandler, '/api/track': trackHandler, '/api/mcp': mcpHandler, '/api/assistant': assistantHandler };
 const TYPES = {
   '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml',
@@ -357,6 +358,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   // What is switched off, and why, said once. Names settings, never their values.
   noteHqSetup(process.env, console.warn);
   for (const note of startupNotes(process.env)) console.warn(`[setup] ${note}`);
+  // Whether "Ask a question" is on, and whether questions go to a model or are answered by the search alone.
+  const assistantLine = assistantStatus({ env: process.env, dist });
+  if (assistantLine) console.log(assistantLine);
   const server = createServer(createHandler({ dist }));
   server.listen(port, host, () => console.log(`Call Harbison is serving ./dist on http://${host}:${port}`));
 

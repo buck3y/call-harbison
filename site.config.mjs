@@ -43,6 +43,14 @@ export function vercelInsightsOn(env = process.env) {
   const value = String(env.VERCEL_INSIGHTS || '').trim();
   return value ? value !== 'off' : Boolean(env.VERCEL);
 }
+// "Ask a question" (docs/ASSISTANT.md). ASSISTANT=on puts it in the pages; anything else leaves the site exactly as
+// it was. ASSISTANT_PROVIDER_NAME is the company the privacy page names as the one that receives questions; empty
+// means the privacy page says questions go nowhere, and the server then never sends one. The model's address, key and
+// name are server settings (api/assistant.js) and never reach a page.
+export function assistantSettings(env = process.env) {
+  const name = String(env.ASSISTANT_PROVIDER_NAME || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  return { on: String(env.ASSISTANT || '').trim().toLowerCase() === 'on', providerName: name };
+}
 const trackers = trackerIds();
 
 export default {
@@ -91,4 +99,6 @@ export default {
   gtmId: resolveGtmId(process.env.GTM_ID),
   // Vercel Web Analytics and Speed Insights: only on Vercel (see vercelInsightsOn above).
   vercelInsights: vercelInsightsOn(),
+  // "Ask a question": { on, providerName } (see assistantSettings above).
+  assistant: assistantSettings(),
 };

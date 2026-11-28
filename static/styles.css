@@ -1001,3 +1001,32 @@ html.no-vt.leaving main,html.no-vt.leaving .footer{opacity:0;transition:opacity 
   .nsp-src li{display:inline}
   .nsp-src li+li::before{content:"; "}
 }
+
+/* ---------- Ask a question (the assistant, docs/ASSISTANT.md; in the pages only when ASSISTANT=on) ---------- */
+/* It continues the FAQ it follows: the visitor's question in 600, the website's answer under it, the page it came
+   from as a plain link, one gold rule under each entry. No box, no bubble, no shadow, no animation. */
+.ask{margin:40px 0 0;max-width:740px}
+.ask-main{margin-top:0}
+.ask-label{display:block;margin:0 0 8px;font:600 1rem/1.4 var(--sans);color:var(--ink)}
+.ask-row{display:flex;gap:8px}
+.ask-row input{flex:1 1 auto;min-width:0;min-height:48px;padding:0 12px;border:1px solid var(--field);border-radius:var(--r);background:var(--white);color:var(--ink);font:inherit;font-size:16px}
+.ask-row input:focus{outline:none;border-color:var(--navy);box-shadow:var(--ring)}
+.ask-row .btn{flex:none}
+.ask-hint{max-width:65ch}
+.ask-status{margin:16px 0 0;font-size:.9375rem;color:var(--soft)}
+.ask-status:empty{display:none}
+.ask-log{list-style:none;margin:24px 0 0;padding:0}
+.ask-log li{padding:16px 0;border-bottom:1px solid var(--gold-mid)}
+.ask-log li:first-child{padding-top:4px}
+.ask-q{margin:0 0 8px;font:600 1rem/1.4 var(--sans);color:var(--ink)}
+.ask-a{margin:0;color:var(--text);max-width:65ch}
+.ask-from+.ask-a{margin-top:16px}
+.ask-from,.ask-reach{margin:8px 0 0;font-size:.9375rem;color:var(--soft);max-width:65ch}
+.ask-reach{display:flex;flex-wrap:wrap;gap:4px 24px}
+.ask-from a,.ask-reach a{color:var(--navy);font-weight:600;text-decoration:underline;text-decoration-color:var(--gold-mid);text-decoration-thickness:1px;text-underline-offset:3px}
+.ask-from a:hover,.ask-reach a:hover{text-decoration-color:var(--navy)}
+.ask-tools{margin:8px 0 0}
+.ask-clear{-webkit-appearance:none;appearance:none;min-height:44px;padding:0;border:0;background:none;color:var(--soft);font:500 .9375rem/1.2 var(--sans);text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px;cursor:pointer}
+.ask-clear:hover{color:var(--navy);text-decoration-color:var(--navy)}
+@media print{.ask-form,.ask-tools,.ask-status{display:none!important}}
+/* ---------- end Ask a question (build.mjs drops this section when ASSISTANT is off) ---------- */

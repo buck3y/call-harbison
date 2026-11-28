@@ -10,6 +10,7 @@ import { buildPages } from './src/pages.mjs';
 import { decoratePage, esPath, loadDictionary, translatePage } from './src/i18n/translate.mjs';
 import { family } from './src/family.mjs';
 import { COMMAND_PHASE, assertCommandBuild } from './lib/command-phase.js';
+import { assistantStyles, finishAssistantBuild } from './lib/assistant/collect.js';
 
 assertCommandBuild(process.env);
 
@@ -43,7 +44,8 @@ const pages = englishPages.flatMap(([file, html, path, mod]) => {
 if (translation.report.missing.size) console.warn(`[i18n] ${translation.report.missing.size} English texts have no Spanish entry and stay in English on /es pages. Run: node scripts/i18n.mjs extract --out todo.json`);
 
 // Minify and fingerprint CSS + client scripts so repeat page navigations reuse immutable browser cache.
-const css = readFileSync('static/styles.css', 'utf8')
+// The "Ask a question" styles are one marked section of the stylesheet, left out unless ASSISTANT=on.
+const css = assistantStyles(readFileSync('static/styles.css', 'utf8'), process.env)
   .replace(/\/\*[\s\S]*?\*\//g, '')
   .replace(/\s+/g, ' ')
   .replace(/\s*([{}:;,>])\s*/g, '$1')
@@ -60,6 +62,9 @@ rmSync(join(out, 'styles.css'));
 renameSync(join(out, 'script.js'), join(out, `script.${jsHash}.js`));
 renameSync(join(out, 'analytics.js'), join(out, `analytics.${analyticsHash}.js`));
 renameSync(join(out, 'consent.js'), join(out, `consent.${consentHash}.js`));
+// With ASSISTANT=on: collects the approved answers from the finished pages into <out>/.assistant/ (a dot-folder,
+// which server.mjs never serves) and fingerprints assistant.js. Off: removes assistant.js from the output.
+const assistantJs = finishAssistantBuild({ out, pages, env: process.env });
 
 for (const [file, html] of pages) {
   const path = join(out, file);
@@ -71,6 +76,7 @@ for (const [file, html] of pages) {
       .replace('src="/script.js"', `src="/script.${jsHash}.js"`)
       .replace('src="/analytics.js"', `src="/analytics.${analyticsHash}.js"`)
       .replace('src="/consent.js"', `src="/consent.${consentHash}.js"`)
+      .replace('src="/assistant.js"', `src="/${assistantJs}"`)
   );
 }
 

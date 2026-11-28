@@ -1,5 +1,6 @@
 // The list of pages the site is built from. Shared by the build and by the translation tooling.
-import { areas, guides, situations } from './templates.mjs';
+import site from '../site.config.mjs';
+import { areas, guides, situations, askPage } from './templates.mjs';
 import {
   homePage, howItWorksPage, contactPage, accessibilityPage, situationPage, areaPage, situationsIndexPage, aboutPage, guidesIndexPage, guidePage,
   thankYouPage, notFoundPage, privacyPage, termsPage, familyPage, partnerGuidePage,
@@ -17,6 +18,8 @@ export function buildPages() {
     ['about.html', aboutPage(), '/about'],
     ['how-it-works.html', howItWorksPage(), '/how-it-works'],
     ['contact.html', contactPage(), '/contact'],
+    // "Ask a question" exists only in a build with ASSISTANT=on (docs/ASSISTANT.md).
+    ...(site.assistant?.on ? [['ask.html', askPage(), '/ask']] : []),
     ...inquiryPages.map(item => [`${item.slug}.html`, inquiryPage(item), `/${item.slug}`, '2026-11-06']),
     [`${family.path.slice(1)}.html`, familyPage(), family.path],
     ['family-property-guide.html', partnerGuidePage(), null],

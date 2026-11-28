@@ -8,6 +8,7 @@ import { cityAreas, bakersfieldZips } from './content-cities.mjs';
 import { moreSituations } from './content-situations-more.mjs';
 import { paperQuestions, paperGroups, quizQuestions, quizResults, quizReasons, quizNotes, toolCopy } from './content-tools.mjs';
 import { handoffTools, handoffCopy } from './content-handoff.mjs';
+import { askCopy, askPrivacy } from './content-assistant.mjs';
 import {
   processSteps, routes, compareDisclosure, transparency, safeguards,
   offerExplanation, offerExample, walkthrough, formSituations, situationFormMap, detailOptions,
@@ -51,6 +52,7 @@ export const PAGE_DATES = {
   '/home-value': '2026-11-12',
   '/about': '2026-11-05',
   '/privacy': '2026-11-27',
+  '/ask': '2026-11-27',
 };
 export const contentDate = (path, fallback = BUILD_DATE) => PAGE_DATES[path] || fallback;
 const niceDate = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
@@ -305,7 +307,7 @@ function footer(cta) {
   return `<footer class="footer" id="contact">
   <div class="container footer-grid">
     <div class="footer-brand"><a href="/" aria-label="${esc(site.name)} home"><img class="footer-logo" src="${logoReverse}" alt="${esc(site.name)}" width="202" height="48" loading="lazy"></a><p><strong class="footer-tag">${esc(site.tagline)}</strong></p></div>
-    <nav aria-label="Explore"><h2 class="footer-h">Explore</h2><a href="/how-it-works">How it works</a><a href="/situations">Situations</a><a href="/guides">Guides</a><a href="/about">About</a></nav>
+    <nav aria-label="Explore"><h2 class="footer-h">Explore</h2><a href="/how-it-works">How it works</a><a href="/situations">Situations</a><a href="/guides">Guides</a><a href="/about">About</a>${askFooterLink()}</nav>
     <div><h2 class="footer-h">Contact</h2><a href="tel:${site.phoneHref}">Call ${esc(site.phone)}</a><a href="sms:${site.phoneHref}">Text ${esc(site.phone)}</a><a href="mailto:${esc(site.email)}">${esc(site.email)}</a><a href="/nathanael-harbison.vcf" download data-cta="save_contact_footer">Save contact card</a></div>
     <div><h2 class="footer-h">Follow</h2><div class="footer-social">${socialLinks()}</div></div>
   </div>
@@ -326,7 +328,7 @@ ${header(cta)}
 <main id="main">
 ${body}
 </main>
-${footer(cta)}
+${footer(cta)}${askScript(body)}
 </body>
 </html>
 `;
@@ -572,7 +574,7 @@ export function homePage() {
   <div class="container narrow">
     <h2>Questions about selling for cash</h2>
     ${faqList(homeFaqs)}
-    <p class="faq-more">Not selling? Nathanael also works with <a href="/buyers">buyers</a> and <a href="/investors" data-cta="investor_inquiry">investors</a>, and can help you <a href="/home-value">understand your home’s value</a>.</p>
+    <p class="faq-more">Not selling? Nathanael also works with <a href="/buyers">buyers</a> and <a href="/investors" data-cta="investor_inquiry">investors</a>, and can help you <a href="/home-value">understand your home’s value</a>.</p>${askBlock()}
   </div>
 </section>
 
@@ -630,7 +632,7 @@ function detailPage({ item, path, crumbs, extra = '', form = {}, pageType = 'pag
 <section class="section cream">
   <div class="container narrow">
     <div class="section-head center"><h2>Common <em>questions</em></h2></div>
-    ${faqList(allFaqs)}
+    ${faqList(allFaqs)}${askBlock()}
   </div>
 </section>
 
@@ -1457,7 +1459,7 @@ export function privacyPage() {
     <p><button type="button" class="btn btn-ghost" data-analytics-optout>Disable first-party analytics in this browser</button></p>
     ${choices}
     ${site.vercelInsights ? '<p>Because this site is hosted on Vercel, Vercel Web Analytics and Speed Insights also measure page views and loading speed. The banner does not turn them off.</p>' : ''}
-    <p>Use the Privacy choices link in the footer to change your choice at any time.</p>
+    <p>Use the Privacy choices link in the footer to change your choice at any time.</p>${askPrivacyText()}
     <h2 class="prose-h">How we use it</h2>
     <ul>
       <li>To respond to your inquiry and evaluate your property</li>
@@ -1648,7 +1650,7 @@ ${hasVideos ? `<section class="section cream">
 <section class="section white" id="faq">
   <div class="container narrow">
     <div class="section-head center"><h2>${hasVideos ? 'Common <em>questions</em>' : 'Questions families <em>ask Nathanael</em>'}</h2></div>
-    ${faqList(allFaqs)}
+    ${faqList(allFaqs)}${askBlock()}
     <p class="disclaimer">General information, not legal or tax advice. For questions about authority to sell, trusts, or conservatorships, talk with an elder-law or estate attorney.</p>
     <h3>Related</h3><ul class="chip-list">${['inherited-property', 'vacant-property', 'needs-major-repairs', 'relocation'].map((slug) => situations.find((s) => s.slug === slug)).filter(Boolean).map((s) => `<li><a href="/situations/${s.slug}">${esc(s.name)}</a></li>`).join('')}<li><a href="/guides/sell-inherited-house-california">Inherited house guide</a></li></ul>
   </div>
@@ -1678,4 +1680,59 @@ export function partnerGuidePage() {
   </div>
 </section>`
   );
+}
+
+// ---------- Ask a question: the assistant (docs/ASSISTANT.md) ----------
+// In the pages only when the build has ASSISTANT=on. With it off every function here returns '' and /ask is not built,
+// so the pages are exactly what they were. The block follows a page's FAQ list and reads like it: the visitor's
+// question in weight 600, the website's answer under it, the page it came from, a thin gold rule under each entry.
+const askOn = () => site.assistant?.on === true;
+const askFooterLink = () => (askOn() ? `<a href="/ask">${askCopy.footer}</a>` : '');
+const askScript = (body) => (askOn() && body.includes('data-assistant') ? '<script src="/assistant.js" defer></script>' : '');
+
+// Hidden until static/assistant.js starts: without JavaScript it cannot work, and a form falling back to a plain GET
+// would put the question in the address bar and in the web server's access log.
+function askBlock({ standalone = false } = {}) {
+  if (!askOn()) return '';
+  return `
+    <div class="ask${standalone ? ' ask-main' : ''}" data-assistant data-phone="${esc(site.phoneHref)}" data-phone-label="${esc(site.phone)}" hidden>
+      <form class="ask-form" novalidate>
+        <label class="ask-label" for="ask-q">${standalone ? askCopy.labelPage : askCopy.label} <span class="muted">${askCopy.automated}</span></label>
+        <div class="ask-row"><input id="ask-q" name="q" type="text" maxlength="500" autocomplete="off" enterkeyhint="send" aria-describedby="ask-hint"><button class="btn btn-outline" type="submit">${askCopy.button}</button></div>
+        <p class="form-hint ask-hint" id="ask-hint">${askCopy.hint}</p>
+      </form>
+      <p class="ask-status" role="status" aria-live="polite"></p>
+      <ol class="ask-log" hidden></ol>
+      <p class="ask-tools" hidden><button class="ask-clear" type="button">${askCopy.clear}</button></p>
+    </div>`;
+}
+
+export function askPage() {
+  const path = '/ask';
+  const title = pageTitle(askCopy.title);
+  const crumbs = [['Home', '/'], [askCopy.crumb, path]];
+  const image = `${site.url}${ogDefault}`;
+  return page(
+    { title, description: askCopy.description, path, image, pageType: 'ask', hasForm: false, ld: graph({ path, title, description: askCopy.description, image, crumbs, speakableSelectors: ['h1'] }) },
+    `${imageHeader(images.local, `${crumbNav(crumbs)}
+    <h1 class="page-title">${askCopy.heading}</h1>
+    <p class="page-intro">${askCopy.intro}</p>`)}
+<section class="section ask-page">
+  <div class="container narrow">${askBlock({ standalone: true })}
+    <noscript><p>${askCopy.noscript}</p></noscript>
+    <p class="faq-more">Prefer to talk? Call or text <a href="tel:${site.phoneHref}">${esc(site.phone)}</a></p>
+  </div>
+</section>`
+  );
+}
+
+// The privacy page: what happens to a question, in the wording that matches the build (a provider named or not).
+function askPrivacyText() {
+  if (!askOn()) return '';
+  const name = site.assistant.providerName;
+  return `
+    <h2 class="prose-h">${askPrivacy.heading}</h2>
+    ${name ? `<p>${askPrivacy.sent}</p>
+    <ul><li>${esc(name)}</li></ul>
+    <p>${askPrivacy.after}</p>` : `<p>${askPrivacy.local}</p>`}`;
 }
